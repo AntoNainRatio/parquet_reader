@@ -7,45 +7,35 @@
 
   "configurePresets": [
     {
-      "name": "windows",
-      "displayName": "Configure Windows (with vcpkg)",
+      "name": "windows-debug",
+      "displayName": "Windows Debug (vcpkg)",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/windows",
+      "binaryDir": "${sourceDir}/build/windows-debug",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "CMAKE_BUILD_TYPE": "Release"
-      },
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
-      "name": "linux",
-      "displayName": "Configure Linux (with vcpkg)",
+      "name": "windows-release",
+      "displayName": "Windows Release (vcpkg)",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/linux",
+      "binaryDir": "${sourceDir}/build/windows-release",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "CMAKE_BUILD_TYPE": "Release"
-      },
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
       }
     }
   ],
 
   "buildPresets": [
     {
-      "name": "windows-build",
-      "configurePreset": "windows"
+      "name": "windows-debug-build",
+      "configurePreset": "windows-debug"
     },
     {
-      "name": "linux-build",
-      "configurePreset": "linux"
+      "name": "windows-release-build",
+      "configurePreset": "windows-release"
     }
   ]
 }
