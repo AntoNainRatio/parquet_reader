@@ -1,0 +1,19 @@
+{
+  "name": "parquet-utils",
+  "dependencies": [
+    {
+      "name": "arrow",
+      "default-features": true,
+      "features": [
+        "parquet"
+      ]
+    },
+    {
+      "name": "google-cloud-cpp",
+      "default-features": false,
+      "features": [
+        "storage"
+      ]
+    }
+  ]
+}
