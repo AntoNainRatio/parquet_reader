@@ -253,3 +253,46 @@ void ParquetFile::dumpInfo() {
     }
 }
 
+bool ParquetFile::findValueAtLogicalPosition(uint64_t logical_position, int& out_row_group, int& out_column, int& out_page, int& out_value)
+{
+    for (size_t rg = 0; rg < this->row_groups.size(); rg++) {
+        RowGroupIndex& rg_idx = row_groups[rg];
+        if (logical_position < rg_idx.rowgroup_logical_start || logical_position > rg_idx.rowgroup_logical_end) {
+            continue;
+        }
+
+        // found row group
+        out_row_group = rg_idx.row_group_id;
+
+        for (size_t col = 0; col < rg_idx.columns.size(); col++) {
+            ColumnIndex& col_idx = rg_idx.columns[col];
+            if (logical_position < col_idx.column_logical_start || logical_position > col_idx.column_logical_end) {
+                continue;
+            }
+
+            // found column
+            out_column = col_idx.column_id;
+
+            for (size_t page = 0; page < col_idx.pages.size(); page++) {
+                PageIndex& page_idx = col_idx.pages[page];
+                if (logical_position < page_idx.page_logical_start || logical_position > page_idx.page_logical_end) {
+                    continue;
+                }
+
+                // found page
+                out_page = page_idx.page_index;
+
+                for (size_t val = 0; val < page_idx.values.size(); val++) {
+                    ValueIndex& val_idx = page_idx.values[val];
+                    if (logical_position >= val_idx.value_logical_start && logical_position <= val_idx.value_logical_end) {
+                        // found value
+                        out_value = val;
+                        return true;
+                    }
+                }
+            }
+        }
+	}
+    return false;
+}
+
