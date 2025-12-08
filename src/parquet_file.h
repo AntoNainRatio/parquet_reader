@@ -79,10 +79,14 @@ class ParquetFile {
 
         void dumpInfo();
 
-        bool findValueAtLogicalPosition(uint64_t logical_position, 
-                                int& out_row_group, 
+        bool findValueAtLogicalPosition(int& out_row_group, 
                                 int& out_column, 
                                 int& out_page, 
 			                    int& out_value);
 
+        bool readValue(int rg,
+                       int col,
+                       int page,
+                       int value,
+                       std::vector<uint8_t>& out_bytes);
 };

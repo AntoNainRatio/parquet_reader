@@ -14,7 +14,8 @@
 #include <parquet/arrow/reader.h>
 #include <parquet/api/reader.h>
 
-
+using parquet::TypedColumnReader;
+using parquet::Type;
 
 void ParquetFile::BuildLogicalIndex() {
     if (!reader || !metadata) {
@@ -253,11 +254,11 @@ void ParquetFile::dumpInfo() {
     }
 }
 
-bool ParquetFile::findValueAtLogicalPosition(uint64_t logical_position, int& out_row_group, int& out_column, int& out_page, int& out_value)
+bool ParquetFile::findValueAtLogicalPosition(int& out_row_group, int& out_column, int& out_page, int& out_value)
 {
     for (size_t rg = 0; rg < this->row_groups.size(); rg++) {
         RowGroupIndex& rg_idx = row_groups[rg];
-        if (logical_position < rg_idx.rowgroup_logical_start || logical_position > rg_idx.rowgroup_logical_end) {
+        if (this->pos < rg_idx.rowgroup_logical_start || this->pos > rg_idx.rowgroup_logical_end) {
             continue;
         }
 
@@ -266,7 +267,7 @@ bool ParquetFile::findValueAtLogicalPosition(uint64_t logical_position, int& out
 
         for (size_t col = 0; col < rg_idx.columns.size(); col++) {
             ColumnIndex& col_idx = rg_idx.columns[col];
-            if (logical_position < col_idx.column_logical_start || logical_position > col_idx.column_logical_end) {
+            if (this->pos < col_idx.column_logical_start || this->pos > col_idx.column_logical_end) {
                 continue;
             }
 
@@ -275,7 +276,7 @@ bool ParquetFile::findValueAtLogicalPosition(uint64_t logical_position, int& out
 
             for (size_t page = 0; page < col_idx.pages.size(); page++) {
                 PageIndex& page_idx = col_idx.pages[page];
-                if (logical_position < page_idx.page_logical_start || logical_position > page_idx.page_logical_end) {
+                if (this->pos < page_idx.page_logical_start || this->pos > page_idx.page_logical_end) {
                     continue;
                 }
 
@@ -284,7 +285,7 @@ bool ParquetFile::findValueAtLogicalPosition(uint64_t logical_position, int& out
 
                 for (size_t val = 0; val < page_idx.values.size(); val++) {
                     ValueIndex& val_idx = page_idx.values[val];
-                    if (logical_position >= val_idx.value_logical_start && logical_position <= val_idx.value_logical_end) {
+                    if (this->pos >= val_idx.value_logical_start && this->pos <= val_idx.value_logical_end) {
                         // found value
                         out_value = val;
                         return true;
@@ -293,6 +294,128 @@ bool ParquetFile::findValueAtLogicalPosition(uint64_t logical_position, int& out
             }
         }
 	}
+    return false;
+}
+
+bool ParquetFile::readValue(int rg, int col, int page, int value, std::vector<uint8_t>& out_bytes)
+{
+    if (this->reader) return false;
+
+    parquet::ParquetFileReader* pq_reader = this->reader->parquet_reader();
+    if (!pq_reader) return false;
+
+    auto rg_reader = pq_reader->RowGroup(rg);
+    if (!rg_reader) return false;
+
+    auto col_reader = rg_reader->Column(col);
+    if (!col_reader) return false;
+
+    parquet::Type::type phys = this->metadata->schema()->Column(col)->physical_type();
+
+    ValueIndex to_read = this->row_groups[rg].columns[col].pages[page].values[value];
+
+    int64_t to_skip = static_cast<int64_t>(to_read.row_index);
+
+    int64_t values_read = 0;
+
+    try {
+        switch (phys) {
+            case Type::INT32: {
+                auto* typed = dynamic_cast<TypedColumnReader<parquet::Int32Type>*>(col_reader.get());
+                if (!typed) return false;
+                
+                if (to_skip > 0) typed->Skip(to_skip);
+                
+                std::vector<int32_t> buf(1);
+                int64_t read = typed->ReadBatch(1, nullptr, nullptr, buf.data(), &values_read);
+                if (values_read <= 0) { // NULL or nothing
+                    out_bytes.clear(); 
+                    return true;
+                } 
+                out_bytes.resize(sizeof(int32_t));
+                std::memcpy(out_bytes.data(), &buf[0], sizeof(int32_t));
+                return true;
+            }
+            case Type::INT64: {
+                auto* typed = dynamic_cast<TypedColumnReader<parquet::Int64Type>*>(col_reader.get());
+                if (!typed) return false;
+                
+                if (to_skip > 0) typed->Skip(to_skip);
+
+                std::vector<int64_t> buf(1);
+                int64_t read = typed->ReadBatch(1, nullptr, nullptr, buf.data(), &values_read);
+                if (values_read <= 0) {
+                    out_bytes.clear();
+                    return true;
+                }
+                out_bytes.resize(sizeof(int64_t));
+                std::memcpy(out_bytes.data(), &buf[0], sizeof(int64_t));
+
+                return true;
+            }
+            case Type::FLOAT: {
+                auto* typed = dynamic_cast<TypedColumnReader<parquet::FloatType>*>(col_reader.get());
+                if (!typed) return false;
+                
+                if (to_skip > 0) typed->Skip(to_skip);
+                
+                std::vector<float> buf(1);
+                int64_t read = typed->ReadBatch(1, nullptr, nullptr, buf.data(), &values_read);
+                if (values_read <= 0) {
+                    out_bytes.clear();
+                    return true;
+                }
+                out_bytes.resize(sizeof(float));
+                std::memcpy(out_bytes.data(), &buf[0], sizeof(float));
+                
+                return true;
+            }
+            case Type::DOUBLE: {
+                auto* typed = dynamic_cast<TypedColumnReader<parquet::DoubleType>*>(col_reader.get());
+                if (!typed) return false;
+                
+                if (to_skip > 0) typed->Skip(to_skip);
+                
+                std::vector<double> buf(1);
+                int64_t read = typed->ReadBatch(1, nullptr, nullptr, buf.data(), &values_read);
+                if (values_read <= 0) {
+                    out_bytes.clear();
+                    return true;
+                }
+                out_bytes.resize(sizeof(double));
+                std::memcpy(out_bytes.data(), &buf[0], sizeof(double));
+               
+                return true;
+            }
+            case Type::BYTE_ARRAY: {
+                auto* typed = dynamic_cast<TypedColumnReader<parquet::ByteArrayType>*>(col_reader.get());
+                if (!typed) return false;
+                
+                if (to_skip > 0) typed->Skip(to_skip);
+                
+                std::vector<parquet::ByteArray> buf(1);
+                int64_t read = typed->ReadBatch(1, nullptr, nullptr, buf.data(), &values_read);
+                if (values_read <= 0) {
+                    out_bytes.clear();
+                    return true;
+                }
+                
+                // copy the bytes (no length prefix)
+                out_bytes.resize(buf[0].len);
+                if (buf[0].len > 0 && buf[0].ptr != nullptr)
+                    std::memcpy(out_bytes.data(), buf[0].ptr, buf[0].len);
+
+                return true;
+            }
+            default:
+                // unsupported type
+                return false;
+        }
+    }
+    catch (...) {
+        return false;
+    }
+
     return false;
 }
 

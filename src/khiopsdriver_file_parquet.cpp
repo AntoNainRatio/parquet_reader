@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2025 Orange. All rights reserved.
+﻿// Copyright (c) 2023-2025 Orange. All rights reserved.
 // This software is distributed under the BSD 3-Clause-clear License, the text of which is available
 // at https://spdx.org/licenses/BSD-3-Clause-Clear.html or see the "LICENSE" file for more details.
 
@@ -208,22 +208,61 @@ int driver_fclose(void* stream)
 
 long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 {
-	long long int readcount;
-
-	assert(stream != NULL);
+	if (!ptr || !stream) return -1;
 
 	ParquetFile* parquetFile = static_cast<ParquetFile*>(stream);
-	if (parquetFile == NULL)
+	uint8_t* out = static_cast<uint8_t*>(ptr);  // important !
+	size_t totalBytesToRead = size * count;
+	size_t readcount = 0;
+
+	int rg, col, page, val;
+	parquetFile->findValueAtLogicalPosition(rg, col, page, val);
+
+	while (readcount < totalBytesToRead)
+	{
+		// reading value at offset
+		std::vector<uint8_t> valueBytes;
+		parquetFile->readValue(rg, col, page, val, valueBytes);
+		size_t valueSize = valueBytes.size();
+
+		size_t nb_to_copy = min(valueSize, totalBytesToRead - readcount);
+
+		std::memcpy(out + readcount, valueBytes.data(), nb_to_copy);
+		readcount += nb_to_copy;
+
+		parquetFile->pos += nb_to_copy;
+
+		val++;
+
+		const RowGroupIndex& rg_idx = parquetFile->row_groups[rg];
+		const ColumnIndex& col_idx = rg_idx.columns[col];
+		const PageIndex& page_idx = col_idx.pages[page];
+
+		if (val >= (int)page_idx.values.size()) {
+			val = 0;
+			page++;
+		}
+
+		if (page >= (int)col_idx.pages.size()) {
+			page = 0;
+			col++;
+		}
+
+		if (col >= (int)rg_idx.columns.size()) {
+			col = 0;
+			rg++;
+		}
+
+		// Fin fichier
+		if (rg >= (int)parquetFile->row_groups.size()) {
+			break;
+		}
+	}
+
+	// Vérification complète
+	if (readcount != totalBytesToRead)
 		return -1;
 
-	// Lecture dans le fichier
-	readcount = 0; 
-	size_t totalBytesToRead = size * count;
-	size_t bytesRead = 0;
-
-
-	if (readcount != (long long int)count && ferror((FILE*)stream))
-		readcount = -1;
 	return readcount;
 }
 
@@ -256,5 +295,3 @@ const char* driver_getlasterror()
 {
 	return strerror(errno);
 }
-
-#endif // __nullreadonlydriver__
