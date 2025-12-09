@@ -79,10 +79,10 @@ class ParquetFile {
 
         void dumpInfo();
 
-        bool findValueAtLogicalPosition(int& out_row_group, 
-                                int& out_column, 
-                                int& out_page, 
-			                    int& out_value);
+        bool findValueAtLogicalPosition(size_t& out_row_group,
+            size_t& out_column,
+            size_t& out_page,
+            size_t& out_value);
 
         bool readValue(int rg,
                        int col,

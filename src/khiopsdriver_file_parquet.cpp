@@ -208,14 +208,16 @@ int driver_fclose(void* stream)
 
 long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 {
-	if (!ptr || !stream) return -1;
+	if (!ptr || !stream) {
+		return -1;
+	}
 
 	ParquetFile* parquetFile = static_cast<ParquetFile*>(stream);
 	uint8_t* out = static_cast<uint8_t*>(ptr);  // important !
 	size_t totalBytesToRead = size * count;
 	size_t readcount = 0;
 
-	int rg, col, page, val;
+	size_t rg, col, page, val;
 	parquetFile->findValueAtLogicalPosition(rg, col, page, val);
 
 	while (readcount < totalBytesToRead)
@@ -232,26 +234,28 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 
 		parquetFile->pos += nb_to_copy;
 
-		val++;
-
 		const RowGroupIndex& rg_idx = parquetFile->row_groups[rg];
 		const ColumnIndex& col_idx = rg_idx.columns[col];
 		const PageIndex& page_idx = col_idx.pages[page];
 
-		if (val >= (int)page_idx.values.size()) {
+		col++;
+
+		if (col >= rg_idx.columns.size()) {
+			col = 0;
+			val++;
+		}
+
+		if (val >= page_idx.values.size()) {
 			val = 0;
 			page++;
 		}
 
-		if (page >= (int)col_idx.pages.size()) {
+		if (page >= col_idx.pages.size()) {
 			page = 0;
-			col++;
-		}
-
-		if (col >= (int)rg_idx.columns.size()) {
-			col = 0;
 			rg++;
 		}
+
+
 
 		// Fin fichier
 		if (rg >= (int)parquetFile->row_groups.size()) {
