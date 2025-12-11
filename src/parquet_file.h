@@ -20,7 +20,6 @@ struct ValueIndex {
     uint64_t value_logical_start;   // Position logique globale (en bytes)
     uint64_t value_logical_end;     // logical_offset_start + byte_len - 1
 
-    uint32_t offset_in_page;        // offset dans la page décompressée
     uint32_t byte_len;              // taille brute de la valeur après décodage
 
 };

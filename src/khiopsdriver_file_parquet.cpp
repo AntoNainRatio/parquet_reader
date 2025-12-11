@@ -224,12 +224,16 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 	{
 		// reading value at offset
 		std::vector<uint8_t> valueBytes;
+
+		auto value_logical_start = parquetFile->row_groups[rg].columns[col].pages[page].values[val].value_logical_start;
+		size_t offset_in_value = parquetFile->pos - value_logical_start;
+
 		parquetFile->readValue(rg, col, page, val, valueBytes);
 		size_t valueSize = valueBytes.size();
 
-		size_t nb_to_copy = min(valueSize, totalBytesToRead - readcount);
+		size_t nb_to_copy = min(valueSize-offset_in_value, totalBytesToRead - readcount);
 
-		std::memcpy(out + readcount, valueBytes.data(), nb_to_copy);
+		std::memcpy(out + readcount, valueBytes.data()+offset_in_value, nb_to_copy);
 		readcount += nb_to_copy;
 
 		parquetFile->pos += nb_to_copy;
