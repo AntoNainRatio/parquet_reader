@@ -46,7 +46,7 @@ const char* driver_getDriverName()
 
 const char* driver_getVersion()
 {
-	return "1.0.0";
+	return "0.0.1";
 }
 
 const char* driver_getScheme()
@@ -177,7 +177,29 @@ int driver_dirExists(const char* filename)
 
 long long int driver_getFileSize(const char* filename)
 {
-	ParquetFile parquetFile = ParquetFile(getFilePath(filename));
+
+	// Temporary solution because Khiops accept only one ':' 
+	// so impossible because this driver need the scheme (parquet://...)
+	// turning path from: C/path/to/file.parquet
+	// into: C:/path/to/file.parquet
+
+	const char* file_path = getFilePath(filename);
+
+	char* valid_path = (char*)malloc((strlen(file_path) + 2) * sizeof(char));
+	if (valid_path == NULL) {
+		std::cerr << "driver_getFileSize: Unable to malloc to add \':\' to path." << std::endl;
+		return NULL;
+	}
+
+	valid_path[0] = file_path[0];
+	valid_path[1] = ':';
+	for (size_t i = 1; i <= strlen(file_path); i++)
+		valid_path[i + 1] = file_path[i];
+
+	valid_path[strlen(file_path) + 1] = '\0';
+	// end of temporary solution
+
+	ParquetFile parquetFile = ParquetFile(valid_path);
 	return parquetFile.logical_size;
 }
 
@@ -187,8 +209,29 @@ void* driver_fopen(const char* filename, char mode)
 
 	assert(mode == 'r');
 
-	// Ouverture en lecture
-	handle = new ParquetFile(getFilePath(filename));
+
+	// Temporary solution because Khiops accept only one ':' 
+	// so impossible because this driver need the scheme (parquet://...)
+	// turning path from: C/path/to/file.parquet
+	// into: C:/path/to/file.parquet
+
+	const char* file_path = getFilePath(filename);
+
+	char* valid_path = (char*)malloc((strlen(file_path) + 2) * sizeof(char));
+	if (valid_path == NULL) {
+		std::cerr << "driver_fopen: Unable to malloc to add \':\' to path." << std::endl;
+		return NULL;
+	}
+
+	valid_path[0] = file_path[0];
+	valid_path[1] = ':';
+	for (size_t i = 1; i <= strlen(file_path); i++)
+		valid_path[i + 1] = file_path[i];
+
+	valid_path[strlen(file_path) + 1] = '\0';
+	// end of temporary solution
+
+	handle = new ParquetFile(valid_path);
 	
 	return handle;
 }
@@ -266,10 +309,6 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 			break;
 		}
 	}
-
-	// Vérification complète
-	if (readcount != totalBytesToRead)
-		return -1;
 
 	return readcount;
 }

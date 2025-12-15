@@ -50,7 +50,8 @@ int read_some(int size, int count, void* driver) {
 }
 
 int main() {
-    const std::string path = "C:/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
+    //const std::string path = "C/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
+    const std::string path = "C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
 
     size_t file_logical_size = driver_getFileSize(path.c_str());
     std::cout << "File logical size: " << file_logical_size << std::endl;
@@ -63,9 +64,39 @@ int main() {
     auto pd = (ParquetFile*)driver;
     //pd->dumpInfo();
 
-    //for (int i = 0; i < 7; i++) {
-        read_some(1, file_logical_size, driver);
-    //}
+    size_t buffer_size = 10000;
+    void* buf = calloc(1, buffer_size + 1);
+    if (!buf) {
+        std::cerr << "Error calloc\n";
+        return 1;
+    }
+
+    size_t curr = 0;
+    while (curr < file_logical_size) {
+        if (!buf) {
+            std::cerr << "Error calloc\n";
+            return 1;
+        }
+
+        long long code = driver_fread(buf, 1, buffer_size, driver);
+
+        if (code != -1) {
+            std::cout << "Read bytes = " << code << "\n";
+
+            std::cout << "Buffer contains: " << std::endl << (char*)buf << "<-EOF" << std::endl;
+
+            std::cout << std::endl;
+
+            curr += code;
+        }
+        else {
+            std::cerr << "driver_fread returned -1\n";
+            free(buf);
+            return 1;
+        }
+    }
+
+    free(buf);
 
     if (driver_fclose(driver) != 0) {
         std::cerr << "Error closing driver\n";
