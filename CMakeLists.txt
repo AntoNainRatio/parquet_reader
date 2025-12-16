@@ -42,4 +42,13 @@ target_link_libraries(parquet_reader_main
         khiopsdriver_file_parquet
 )
 
+add_executable(parquet_reader_test "src/driver_test.cpp")
+
+target_link_libraries(parquet_reader_test
+    PRIVATE
+        Arrow::arrow_shared
+        Parquet::parquet_shared
+        khiopsdriver_file_parquet
+)
+
 

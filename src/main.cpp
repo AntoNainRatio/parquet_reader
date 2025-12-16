@@ -49,10 +49,7 @@ int read_some(int size, int count, void* driver) {
     return 0;
 }
 
-int main() {
-    //const std::string path = "C/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
-    const std::string path = "C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
-
+int read_whole_file(const std::string path) {
     size_t file_logical_size = driver_getFileSize(path.c_str());
     std::cout << "File logical size: " << file_logical_size << std::endl;
 
@@ -100,6 +97,22 @@ int main() {
 
     if (driver_fclose(driver) != 0) {
         std::cerr << "Error closing driver\n";
+    }
+
+    return 0;
+}
+
+int main() {
+    //const std::string path = "C/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
+    const std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
+
+    int error = 0;
+
+    int code;
+    code = read_whole_file(path);
+    if (code != 0) {
+        error++;
+        std::cerr << "Error reading whole file." << std::endl;
     }
 
     return 0;

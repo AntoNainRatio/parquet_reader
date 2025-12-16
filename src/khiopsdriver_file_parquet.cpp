@@ -39,6 +39,12 @@
 // Uncomment the following line to compile the read-only version of the driver
 #define __nullreadonlydriver__
 
+static thread_local const char* g_lastError;
+
+void LogError(const char* msg) {
+	g_lastError = std::move(msg);
+}
+
 const char* driver_getDriverName()
 {
 	return "Parquet driver";
@@ -177,6 +183,9 @@ int driver_dirExists(const char* filename)
 
 long long int driver_getFileSize(const char* filename)
 {
+	if (filename == nullptr) {
+		return -1;
+	}
 
 	// Temporary solution because Khiops accept only one ':' 
 	// so impossible because this driver need the scheme (parquet://...)
@@ -187,8 +196,8 @@ long long int driver_getFileSize(const char* filename)
 
 	char* valid_path = (char*)malloc((strlen(file_path) + 2) * sizeof(char));
 	if (valid_path == NULL) {
-		std::cerr << "driver_getFileSize: Unable to malloc to add \':\' to path." << std::endl;
-		return NULL;
+		LogError("driver_getFileSize: Unable to malloc to add \':\' to path.");
+		return -1;
 	}
 
 	valid_path[0] = file_path[0];
@@ -198,16 +207,24 @@ long long int driver_getFileSize(const char* filename)
 
 	valid_path[strlen(file_path) + 1] = '\0';
 	// end of temporary solution
-
-	ParquetFile parquetFile = ParquetFile(valid_path);
-	return parquetFile.logical_size;
+	try {
+		ParquetFile parquetFile = ParquetFile(valid_path);
+		return parquetFile.logical_size;
+	}
+	catch (const std::exception& e) {
+		LogError("driver_getFileSize: Unable to open parquet file to get its size.");
+		return -1;
+	}
 }
 
 void* driver_fopen(const char* filename, char mode)
 {
 	void* handle;
 
-	assert(mode == 'r');
+	if (mode != 'r' || filename == nullptr) {
+		LogError("driver_fopen: Invalid mode or NULL filename.");
+		return nullptr;
+	}
 
 
 	// Temporary solution because Khiops accept only one ':' 
@@ -219,7 +236,7 @@ void* driver_fopen(const char* filename, char mode)
 
 	char* valid_path = (char*)malloc((strlen(file_path) + 2) * sizeof(char));
 	if (valid_path == NULL) {
-		std::cerr << "driver_fopen: Unable to malloc to add \':\' to path." << std::endl;
+		LogError("driver_fopen: Unable to malloc to add \':\' to path.");
 		return NULL;
 	}
 
@@ -231,7 +248,13 @@ void* driver_fopen(const char* filename, char mode)
 	valid_path[strlen(file_path) + 1] = '\0';
 	// end of temporary solution
 
-	handle = new ParquetFile(valid_path);
+	try {
+		handle = new ParquetFile(valid_path);
+	}
+	catch (...) {
+		LogError("driver_fopen: Unable to open parquet file.");
+		return nullptr;
+	}
 	
 	return handle;
 }
@@ -239,19 +262,24 @@ void* driver_fopen(const char* filename, char mode)
 int driver_fclose(void* stream)
 {
 	int code = EOF;
-	assert(stream != NULL);
+	if (stream == nullptr) {
+		LogError("driver_fclose: NULL ParquetFile pointer.");
+		return code;
+	}
 
 	ParquetFile* parquetFile = static_cast<ParquetFile*>(stream);
-	if (parquetFile != NULL)
+	if (parquetFile != NULL) {
 		code = 0;
+		delete (ParquetFile*)stream;
+	}
 
-	delete (ParquetFile*)stream;
 	return code;
 }
 
 long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 {
 	if (!ptr || !stream) {
+		LogError("driver_fread: NULL pointer argument.");
 		return -1;
 	}
 
@@ -261,7 +289,9 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 	size_t readcount = 0;
 
 	size_t rg, col, page, val;
-	parquetFile->findValueAtLogicalPosition(rg, col, page, val);
+	if (!parquetFile->findValueAtLogicalPosition(rg, col, page, val)) { 
+		return 0; 
+	}
 
 	while (readcount < totalBytesToRead)
 	{
@@ -316,29 +346,43 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 int driver_fseek(void* stream, long long int offset, int whence)
 {
 	int ok = 0;
-	assert(stream != NULL);
+	if (stream == nullptr) {
+		LogError("driver_fseek: NULL ParquetFile pointer.");
+		return -1;
+	}
 
 	ParquetFile* parquetFile = static_cast<ParquetFile*>(stream);
 	if (parquetFile == NULL) return -1; // possiblement inutile
 		
 
-	if (whence == SEEK_SET)
-		ok = (offset >= 0 && offset <= (long long int)parquetFile->logical_size);
-	else if (whence == SEEK_CUR)
-		ok = (parquetFile->pos + offset >= 0 && parquetFile->pos + offset <= (long long int)parquetFile->logical_size);
-	else if (whence == SEEK_END)
-		ok = (parquetFile->logical_size + offset >= 0 && parquetFile->logical_size + offset <= (long long int)parquetFile->logical_size);
-	else
-		ok = 0;
-
-	if (ok) {
-		parquetFile->pos = offset;
+	if (whence == std::ios::beg) {
+		if (offset >= 0 && offset <= (long long int)parquetFile->logical_size) {
+			parquetFile->pos = offset;
+			return 0;
+		}
+	}
+	else if (whence == std::ios::cur) {
+		if (parquetFile->pos + offset >= 0 && parquetFile->pos + offset <= (long long int)parquetFile->logical_size) {
+			parquetFile->pos += offset;
+			return 0;
+		}
+	}
+	else if (whence == std::ios::end) {
+		if (parquetFile->logical_size + offset >= 0 && parquetFile->logical_size + offset <= (long long int)parquetFile->logical_size) {
+			parquetFile->pos = parquetFile->logical_size + offset;
+			return 0;
+		}
+	}
+	else {
+		LogError("diver_fseek: Invalid whence.");
+		return -1;
 	}
 
-	return ok;
+	LogError("driver_fseek: Unable to seek to the specified offset.");
+	return -1;
 }
 
 const char* driver_getlasterror()
 {
-	return strerror(errno);
+	return g_lastError;
 }
