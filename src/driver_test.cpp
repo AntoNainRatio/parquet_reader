@@ -197,7 +197,7 @@ int test_driver_fread_whole_file_in_one_read() {
 		return 1;
 	}
 
-	const char* exp = "1,USA,New York\n2,Canada,Toronto\n3,UK,London\n4,Australia,Sydney\n5,Germany,Berlin\n6,France,Paris\n7,Japan,Tokyo\n8,Spain,Madrid\n";
+	const char* exp = "id,country,city\n1,USA,New York\n2,Canada,Toronto\n3,UK,London\n4,Australia,Sydney\n5,Germany,Berlin\n6,France,Paris\n7,Japan,Tokyo\n8,Spain,Madrid\n";
 	if (strcmp(buffer, exp) != 0) {
 		std::cout << "driver_fread tests error: invalid buffer content (exp: \"" << exp << "\", got: \"" << buffer << "\")" << std::endl;
 		free(buffer);
@@ -431,7 +431,7 @@ int test_file_size() {
 
 	path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
 	code = driver_getFileSize(path);
-	exp = 124;
+	exp = 140;
 	if (code != exp) {
 		print_file_size_error(path, exp, code);
 		failed++;

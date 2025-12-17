@@ -23,10 +23,30 @@ void ParquetFile::BuildLogicalIndex() {
     if (!reader || !metadata)
         throw std::runtime_error("Parquet reader or metadata not initialized");
 
+    uint64_t global_offset = 0;
+
     uint32_t num_row_groups = metadata->num_row_groups();
     uint32_t num_columns = metadata->num_columns();
 
-    uint64_t global_offset = 0;
+    headers.clear();
+    headers.reserve(num_columns);
+
+    const parquet::SchemaDescriptor* schema = metadata->schema();
+
+    for (uint32_t i = 0; i < num_columns; ++i) {
+        const parquet::ColumnDescriptor* col = schema->Column(i);
+        const auto& path = col->path()->ToDotString();
+        
+        HeaderIndex header_idx;
+        header_idx.col_index = i;
+        header_idx.header_logical_start = global_offset;
+
+        global_offset += path.size() + 1;
+
+        header_idx.header_logical_end = global_offset - 1;
+        headers.push_back(header_idx);
+    }
+
     row_groups.clear();
     row_groups.reserve(num_row_groups);
 
@@ -209,8 +229,17 @@ void ParquetFile::dumpInfo() {
     }
 }
 
-bool ParquetFile::findValueAtLogicalPosition(size_t& out_row_group, size_t& out_column, size_t& out_page, size_t& out_value)
+bool ParquetFile::findValueAtLogicalPosition(size_t& out_row_group, size_t& out_column, size_t& out_page, size_t& out_value, size_t& out_header)
 {
+    if (this->pos >= 0 && this->pos <= headers.back().header_logical_end) {
+        for (size_t col = 0; col < this->headers.size(); col++) {
+            if (this->pos >= headers[col].header_logical_start && pos <= headers[col].header_logical_end) {
+                out_header = col;
+                return true;
+            }
+        }
+        return false;
+    }
     for (size_t rg = 0; rg < this->row_groups.size(); rg++) {
         RowGroupIndex& rg_idx = row_groups[rg];
         if (this->pos < rg_idx.rowgroup_logical_start || this->pos > rg_idx.rowgroup_logical_end) {

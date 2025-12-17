@@ -12,6 +12,12 @@
 #include <parquet/arrow/reader.h>
 #include <parquet/api/reader.h>
 
+struct HeaderIndex {
+    uint32_t col_index;
+
+    uint64_t header_logical_start;
+    uint64_t header_logical_end;
+};
 
 
 struct ValueIndex {
@@ -58,6 +64,7 @@ class ParquetFile {
         uint64_t pos = 0;               // logical current position
         uint64_t logical_size = 0;
 
+        std::vector<HeaderIndex> headers;
 		std::vector<RowGroupIndex> row_groups; // vector containing all metadata logical index
 
         std::unique_ptr<parquet::arrow::FileReader> reader;
@@ -81,7 +88,8 @@ class ParquetFile {
         bool findValueAtLogicalPosition(size_t& out_row_group,
             size_t& out_column,
             size_t& out_page,
-            size_t& out_value);
+            size_t& out_value,
+            size_t& out_header);
 
         bool readValue(int rg,
                        int col,

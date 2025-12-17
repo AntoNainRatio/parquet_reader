@@ -288,9 +288,40 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 	size_t totalBytesToRead = size * count;
 	size_t readcount = 0;
 
-	size_t rg, col, page, val;
-	if (!parquetFile->findValueAtLogicalPosition(rg, col, page, val)) { 
+	size_t rg = 0, col = 0, page = 0, val = 0;
+	size_t header = -1;
+	if (!parquetFile->findValueAtLogicalPosition(rg, col, page, val, header)) { 
 		return 0; 
+	}
+	else if (header != -1) {
+		const parquet::SchemaDescriptor* schema = parquetFile->metadata->schema();
+
+		while (readcount < totalBytesToRead && header < parquetFile->headers.size()) {
+			auto value_logical_start = parquetFile->headers[header].header_logical_start;
+			size_t offset_in_value = parquetFile->pos - value_logical_start;
+
+			const parquet::ColumnDescriptor* col = schema->Column(header);
+			std::string value = col->path()->ToDotString();
+			if (header == parquetFile->headers.size() - 1) {
+				value.push_back('\n');
+			}
+			else {
+				value.push_back(',');
+			}
+
+			size_t valueSize = value.size();
+
+			size_t nb_to_copy = min(valueSize - offset_in_value, totalBytesToRead - readcount);
+
+			std::memcpy(out + readcount, value.data() + offset_in_value, nb_to_copy);
+			readcount += nb_to_copy;
+
+			parquetFile->pos += nb_to_copy;
+
+			if (parquetFile->pos > parquetFile->headers[header].header_logical_end) {
+				header++;
+			}
+		}
 	}
 
 	while (readcount < totalBytesToRead)
