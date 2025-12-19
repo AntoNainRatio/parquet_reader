@@ -103,7 +103,7 @@ int read_whole_file(const std::string path) {
 }
 
 int main() {
-    const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
+    const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/test.parquet";
     //const std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
 
     int error = 0;

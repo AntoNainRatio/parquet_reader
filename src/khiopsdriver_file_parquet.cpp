@@ -139,13 +139,34 @@ int driver_fileExists(const char* filename)
 {
 	int bIsFile = false;
 
+	// Temporary solution because Khiops accept only one ':' 
+	// so impossible because this driver need the scheme (parquet://...)
+	// turning path from: C/path/to/file.parquet
+	// into: C:/path/to/file.parquet
+
+	const char* file_path = getFilePath(filename);
+
+	char* valid_path = (char*)malloc((strlen(file_path) + 2) * sizeof(char));
+	if (valid_path == NULL) {
+		LogError("driver_fopen: Unable to malloc to add \':\' to path.");
+		return NULL;
+	}
+
+	valid_path[0] = file_path[0];
+	valid_path[1] = ':';
+	for (size_t i = 1; i <= strlen(file_path); i++)
+		valid_path[i + 1] = file_path[i];
+
+	valid_path[strlen(file_path) + 1] = '\0';
+	// end of temporary solution
+
 #ifdef _WIN32
 	struct __stat64 fileStat;
-	if (_stat64(getFilePath(filename), &fileStat) == 0)
+	if (_stat64(valid_path, &fileStat) == 0)
 		bIsFile = ((fileStat.st_mode & S_IFMT) == S_IFREG);
 #else
 	struct stat s;
-	if (stat(getFilePath(filename), &s) == 0)
+	if (stat(valid_path, &s) == 0)
 		bIsFile = ((s.st_mode & S_IFMT) == S_IFREG);
 #endif // _WIN32
 
@@ -226,7 +247,6 @@ void* driver_fopen(const char* filename, char mode)
 		return nullptr;
 	}
 
-
 	// Temporary solution because Khiops accept only one ':' 
 	// so impossible because this driver need the scheme (parquet://...)
 	// turning path from: C/path/to/file.parquet
@@ -294,20 +314,12 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 		return 0; 
 	}
 	else if (header != -1) {
-		const parquet::SchemaDescriptor* schema = parquetFile->metadata->schema();
-
 		while (readcount < totalBytesToRead && header < parquetFile->headers.size()) {
 			auto value_logical_start = parquetFile->headers[header].header_logical_start;
 			size_t offset_in_value = parquetFile->pos - value_logical_start;
 
-			const parquet::ColumnDescriptor* col = schema->Column(header);
-			std::string value = col->path()->ToDotString();
-			if (header == parquetFile->headers.size() - 1) {
-				value.push_back('\n');
-			}
-			else {
-				value.push_back(',');
-			}
+			std::string value;
+			if(!parquetFile->readHeader(header, value)) return -1;
 
 			size_t valueSize = value.size();
 

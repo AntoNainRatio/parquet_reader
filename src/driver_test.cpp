@@ -464,6 +464,39 @@ int test_file_size() {
 	return failed;
 }
 
+int test_driver_fileExists() {
+	int failed = 0;
+
+	std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
+	bool exist = driver_fileExists(path.c_str());
+	if (!exist) {
+		std::cout << "driver_fileExists test error: existing file not found." << std::endl;
+		failed++;
+	}
+
+	path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/NonExistent.parquet";
+	exist = driver_fileExists(path.c_str());
+	if (exist) {
+		std::cout << "driver_fileExists test error: non-existing file found." << std::endl;
+		failed++;
+	}
+
+	path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/";
+	exist = driver_fileExists(path.c_str());
+	if (exist) {
+		std::cout << "driver_fileExists test error: directory found as file." << std::endl;
+		failed++;
+	}
+
+	path = "C/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
+	exist = driver_fileExists(path.c_str());
+	if (!exist) {
+		std::cout << "driver_fileExists test error: existing file not found." << std::endl;
+		failed++;
+	}
+	return failed;
+}
+
 int main() {
 	std::cout << "Driver tests:" << std::endl;
 
@@ -481,6 +514,7 @@ int main() {
 	failed += test_driver_fseek_all_file_reverse();
 
 	failed += test_file_size();
+	failed += test_driver_fileExists();
 
 	if (failed == 0) {
 		std::cout << "PASSED: All tests passed" << std::endl;

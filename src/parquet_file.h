@@ -91,6 +91,8 @@ class ParquetFile {
             size_t& out_value,
             size_t& out_header);
 
+        bool readHeader(size_t header, std::string& out_bytes);
+
         bool readValue(int rg,
                        int col,
                        int page,
