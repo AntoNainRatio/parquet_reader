@@ -69,6 +69,8 @@ class ParquetFile {
 
         std::unique_ptr<parquet::arrow::FileReader> reader;
 
+		std::vector <std::shared_ptr<parquet::ColumnReader>> column_readers;
+
         std::shared_ptr<parquet::FileMetaData> metadata;
 
         
@@ -76,12 +78,17 @@ class ParquetFile {
     private:
 
         void BuildLogicalIndex();
+        bool is_open = false;
 
 
     public:
         ParquetFile(const std::string& path);
 
         ~ParquetFile();
+
+		bool isOpen() const { return is_open; }
+
+		void close() { is_open = false; }
 
         void dumpInfo();
 
@@ -98,4 +105,6 @@ class ParquetFile {
                        int page,
                        int value,
                        std::vector<uint8_t>& out_bytes);
+
+		bool openColumnReaders(int rg);
 };

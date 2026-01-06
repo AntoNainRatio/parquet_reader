@@ -2,6 +2,7 @@
 #include <iostream>
 #include <iomanip>
 #include <vector>
+#include <chrono>
 
 #include "parquet_file.h"
 #include "khiopsdriver_file_parquet.h"
@@ -80,9 +81,10 @@ int read_whole_file(const std::string path) {
         if (code != -1) {
             std::cout << "Read bytes = " << code << "\n";
 
+            /*((char*)buf)[code] = 0;
             std::cout << "Buffer contains: " << std::endl << (char*)buf << "<-EOF" << std::endl;
 
-            std::cout << std::endl;
+            std::cout << std::endl;*/
 
             curr += code;
         }
@@ -103,17 +105,22 @@ int read_whole_file(const std::string path) {
 }
 
 int main() {
-    const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/test.parquet";
+    //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
+    const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/hard.parquet";
     //const std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
 
     int error = 0;
 
     int code;
+    auto t1 = std::chrono::high_resolution_clock::now();
     code = read_whole_file(path);
+    auto t2 = std::chrono::high_resolution_clock::now();
     if (code != 0) {
         error++;
         std::cerr << "Error reading whole file." << std::endl;
     }
+
+    std::cout << "Succeed in " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << "millisecs" << std::endl;
 
     return 0;
 }

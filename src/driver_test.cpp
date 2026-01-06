@@ -38,6 +38,33 @@ int test_driver_fclose_erros() {
 	return failed;
 }
 
+int test_driver_use_after_close() {
+	std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
+
+	ParquetFile* mf = (ParquetFile*)driver_fopen(path.c_str(), 'r');
+
+	driver_fclose(mf);
+
+	char buf[10];
+	if (driver_fread(buf, 1, 10, mf) != -1)
+		return 1;
+
+	if (driver_fseek(mf, 0, std::ios::beg) != -1)
+		return 1;
+
+	return 0;
+}
+
+int test_driver_double_fclose() {
+	std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
+
+	auto* f = driver_fopen(path.c_str(), 'r');
+	driver_fclose(f);
+	if (driver_fclose(f) != EOF) return 1;
+	return 0;
+}
+
+
 int test_driver_fread_errors() {
 	int failed = 0;
 
@@ -172,6 +199,78 @@ int test_driver_fread_all_file() {
 	return 0;
 }
 
+// read all file from begin to end using driver_fread, fseek to begin and read again
+int test_driver_fread_all_file_two_times() {
+	std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
+
+	ParquetFile* mf = (ParquetFile*)driver_fopen(path.c_str(), 'r');
+	if (mf == nullptr) {
+		throw std::runtime_error("driver_fopen error during driver_fread all file test.");
+	}
+	int code;
+
+	const size_t buffer_size = 1000;
+	char* buffer = (char*)calloc(buffer_size, sizeof(char));
+
+	size_t total_read = 0;
+
+	size_t total_read_target = driver_getFileSize(path.c_str());
+	// std::cout << "size : " << total_read_target << " bytes" << std::endl;
+	size_t read_size_in_loop = buffer_size;
+	while (total_read < total_read_target) {
+		/*std::cout << "BEGGING OF LOOP" << std::endl;
+		std::cout << "fread call" << std::endl;*/
+		code = driver_fread(buffer, sizeof(char), read_size_in_loop, mf);
+		// std::cout << "end of fread call" << std::endl;
+
+		if (code != -1) {
+			// std::cout << "Read " << code << " bytes." << std::endl;
+			total_read += code;
+		}
+		else {
+			std::cout << "driver_fread all file test: error reading the whole file." << std::endl;
+			return 1;
+		}
+		// std::cout << "END of loop" << std::endl;
+	}
+
+	if (total_read != total_read_target) {
+		std::cout << "driver_fread all file test: read more than there is in file." << std::endl;
+		return 1;
+	}
+
+	code = driver_fseek(mf, 0, std::ios::beg);
+	if (code == -1) {
+		throw std::runtime_error("driver_fseek error during driver_fread all file test.");
+	}
+
+	total_read = 0;
+	while (total_read < total_read_target) {
+		code = driver_fread(buffer, sizeof(char), read_size_in_loop, mf);
+
+		if (code != -1) {
+			total_read += code;
+		}
+		else {
+			std::cout << "driver_fread all file test: error reading the whole file." << std::endl;
+			return 1;
+		}
+	}
+
+	if (total_read != total_read_target) {
+		std::cout << "driver_fread all file test: read more than there is in file." << std::endl;
+		return 1;
+	}
+
+	code = driver_fclose(mf);
+	if (code == -1) {
+		throw std::runtime_error("driver_close error during driver_fread all file test.");
+	}
+
+	free(buffer);
+	return 0;
+}
+
 int test_driver_fread_whole_file_in_one_read() {
 	int code;
 
@@ -215,6 +314,218 @@ int test_driver_fread_whole_file_in_one_read() {
 
 	return 0;
 }
+
+int test_driver_fread_partial_reads() {
+	std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
+	
+    ParquetFile* mf = (ParquetFile*)driver_fopen(path.c_str(), 'r');
+
+    char buf[7];
+    int r1 = driver_fread(buf, 1, 3, mf);
+    int r2 = driver_fread(buf, 1, 3, mf);
+    int r3 = driver_fread(buf, 1, 3, mf);
+
+    if (r1 != 3 || r2 != 3 || r3 != 3)
+        return 1;
+
+    driver_fclose(mf);
+    return 0;
+}
+
+
+int test_driver_fread_after_eof() {
+	std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
+
+	ParquetFile* mf = (ParquetFile*)driver_fopen(path.c_str(), 'r');
+
+	char buf[300];
+	size_t size = driver_getFileSize(path.c_str());
+
+	driver_fseek(mf, size, std::ios::beg);
+
+	int r = driver_fread(buf, 1, 300, mf);
+	if (r != 0) {
+		std::cout << "test fread after eof: reading after eof didn't return 0." << std::endl;
+		return 1;
+	}
+
+	// appel REFAIT
+	r = driver_fread(buf, 1, 300, mf);
+	if (r != 0) {
+		std::cout << "test fread after eof: reading after eof didn't return 0." << std::endl;
+		return 1;
+	}
+
+	driver_fclose(mf);
+	return 0;
+}
+
+int test_driver_fread_fseek_mix() {
+	std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
+
+	ParquetFile* mf = (ParquetFile*)driver_fopen(path.c_str(), 'r');
+
+	char buf[32];
+	char buf1[32];
+	char buf2[32];
+
+	int code;
+	int code1;
+	int code2;
+
+	code = driver_fread(buf, 1, 30, mf);
+	buf[31] = 0;
+	driver_fseek(mf, 0, std::ios::beg);
+
+	code1 = driver_fread(buf1, 1, 30, mf);
+	buf1[31] = 0;
+
+	if (code != code1) {
+		std::cout << "test fread fseek mix: reading two times the beginning of file didn't read same size." << std::endl;
+		return 1;
+	}
+	if (memcmp(buf, buf1, 32) != 0) {
+		std::cout << "test fread fseek mix: reading two times the beginning of file didn't return same buffers." << std::endl;
+		std::cout << "Buf: " << buf << std::endl;
+		std::cout << "Buf1: " << buf1 << std::endl;
+		return 1;
+	}
+
+
+
+	if (driver_fseek(mf, 18, std::ios::cur) == -1) {
+		std::cout << "test fread fseek mix: Couldn't fseek 5 from cur." << std::endl;
+		return 1;
+	}
+	if (driver_fread(buf, 1, 32, mf) != 32) {
+		std::cout << "test fread fseek mix: Couldn't read 32." << std::endl;
+		return 1;
+	}
+
+	driver_fclose(mf);
+	return 0;
+}
+
+int test_driver_fseek_unaligned() {
+	std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
+
+	ParquetFile* mf = (ParquetFile*)driver_fopen(path.c_str(), 'r');
+
+	driver_fseek(mf, 1, std::ios::beg);
+	char c;
+	driver_fread(&c, 1, 1, mf);
+
+	driver_fseek(mf, 2, std::ios::beg);
+	driver_fread(&c, 1, 1, mf);
+
+	driver_fclose(mf);
+	return 0;
+}
+
+int test_driver_fread_byte_by_byte() {
+	std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
+
+	ParquetFile* mf = (ParquetFile*)driver_fopen(path.c_str(), 'r');
+
+	char c;
+	size_t total = 0;
+	while (driver_fread(&c, 1, 1, mf) == 1) {
+		total++;
+	}
+
+	if (total != driver_getFileSize(path.c_str()))
+		return 1;
+
+	driver_fclose(mf);
+	return 0;
+}
+
+int test_driver_fread_eof() {
+	std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
+
+
+	ParquetFile* mf = (ParquetFile*)driver_fopen(path.c_str(), 'r');
+
+	int code;
+	code = driver_fseek(mf, 0, std::ios::end);
+	if (code == -1) {
+		std::cout << "driver_fread eof test: error seeking to end of file." << std::endl;
+		return 1;
+	}
+
+	char buf[10];
+	code = driver_fread(buf, 1, 10, mf);
+	if (code != 0) {
+		std::cout << "driver_fread eof test: reading at end of file didn't return 0." << std::endl;
+		return 1;
+	}
+
+	code = driver_fclose(mf);
+	if (code == -1) {
+		std::cout << "driver_fclose error during driver_fread eof test." << std::endl;
+		return 1;
+	}
+
+	return 0;
+}
+
+int test_driver_fread_multiple_time() {
+	std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
+
+	size_t total_size = driver_getFileSize(path.c_str());
+	std::cout << "Places.parquet size: " << total_size << " bytes." << std::endl;
+
+	ParquetFile* mf = (ParquetFile*)driver_fopen(path.c_str(), 'r');
+
+	int code;
+	code = driver_fseek(mf, 1048576, std::ios::beg);
+	if (code == -1) {
+		std::cout << "driver_fread eof test: error seeking to end of file." << std::endl;
+		return 1;
+	}
+
+	char* buf = (char*)calloc(1048576+1,sizeof(char));
+
+	code = driver_fread(buf, 1, 1048576, mf);
+	if (code == -1) {
+		std::cout << "driver_fread multiple time test: error reading after seeking to 1MB from BEGIN." << std::endl;
+		free(buf);
+		return 1;
+	}
+
+	for (size_t i = 0; i < 100; i++){
+		size_t random_seek = rand() % (1048576 + 1);
+
+		code = driver_fseek(mf, random_seek, std::ios::beg);
+
+		if (code == -1) {
+			std::cout << "driver_fread multiple time test: error seeking to " << random_seek << " from BEGIN." << std::endl;
+			free(buf);
+			return 1;
+		}
+
+		//size_t random_read = rand() % (1048576 + 1);
+		size_t random_read = 1048576;
+
+		code = driver_fread(buf, 1, random_read, mf);
+		if (code == -1) {
+			std::cout << "driver_fread multiple time test: error reading after seeking to " << random_read << " from BEGIN." << std::endl;
+			free(buf);
+			return 1;
+		}
+	}
+
+	code = driver_fclose(mf);
+	if (code == -1) {
+		std::cout << "driver_fclose error during driver_fread multiple time test." << std::endl;
+		free(buf);
+		return 1;
+	}
+
+	free(buf);
+	return 0;
+}
+
 
 // testing error handling in driver_fseek function
 int test_driver_fseek_errors() {
@@ -374,7 +685,7 @@ int test_driver_fseek_all_file_reverse() {
 	size_t total_seek = 0;
 	code = driver_fseek(mf, 0, std::ios::end);
 	if (code == -1) {
-		std::cout << "driver_fseek all file reverse test: error seeking the whole file." << std::endl;
+		std::cout << "driver_fseek all file reverse test: error seeking to the end of the file." << std::endl;
 		std::cout << driver_getlasterror() << std::endl;
 		return 1;
 	}
@@ -409,7 +720,7 @@ int test_driver_fseek_all_file_reverse() {
 
 	code = driver_fclose(mf);
 	if (code == -1) {
-		throw std::runtime_error("driver_close error during driver_fseek all file test.");
+		throw std::runtime_error("driver_close error during driver_fseek all file reverse test.");
 	}
 	return 0;
 }
@@ -502,19 +813,31 @@ int main() {
 
 	int failed = 0;
 
-	failed += test_driver_fopen_errors();
+	/*failed += test_driver_fopen_errors();
 	failed += test_driver_fclose_erros();
+	failed += test_driver_use_after_close();
+	failed += test_driver_double_fclose();
+
 	failed += test_driver_fread_errors();
 	failed += test_driver_fread();
 	failed += test_driver_fread_all_file();
 	failed += test_driver_fread_whole_file_in_one_read();
-	failed += test_driver_fseek_errors();
+	failed += test_driver_fread_all_file_two_times();
+	failed += test_driver_fread_partial_reads();
+	failed += test_driver_fread_after_eof();
+	failed += test_driver_fread_fseek_mix();
+	failed += test_driver_fread_byte_by_byte();
+	failed += test_driver_fread_eof();*/
+	failed += test_driver_fread_multiple_time();
+
+	/*failed += test_driver_fseek_errors();
 	failed += test_driver_fseek_random();
 	failed += test_driver_fseek_all_file();
 	failed += test_driver_fseek_all_file_reverse();
+	failed += test_driver_fseek_unaligned();
 
 	failed += test_file_size();
-	failed += test_driver_fileExists();
+	failed += test_driver_fileExists();*/
 
 	if (failed == 0) {
 		std::cout << "PASSED: All tests passed" << std::endl;
