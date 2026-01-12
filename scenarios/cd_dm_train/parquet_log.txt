@@ -1,50 +1,14 @@
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 20598 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 20644 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 39479 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 39494 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 39508 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 39522 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 39526 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 39539 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 40812 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 40826 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 40828 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 40929 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 40930 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 40936 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 40948 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 40963 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 40976 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 40993 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 41066 : Ignored record, bad field number (12 read fields for 15 expected fields)
-Variable construction time: 0:00:18.08 (100 constructed variables)
-Train unsupervised model
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet : Record 14408 : Variable RoadNumber with value <"   TwoWay 2 0 Uphill   S...> : missing double-quote at the end of the field
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet : Record 14408 : Ignored record, bad field number (3 read fields for 18 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 16437 : Variable PostalAddress with value <"La Vaudonnerie" PK 16 s> : double-quote in the middle of the field should be paired
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 20598 : Variable PostalAddress with value <"MOULIN (BOULEVARD JEAN) ...> : missing double-quote at the end of the field
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 20598 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 20644 : Variable PostalAddress with value <"MOULIN (BOULEVARD JEAN) ...> : missing double-quote at the end of the field
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 20644 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 39479 : Variable PostalAddress with value <"PIERRE SEMARD (RUE ""CO ...> : missing double-quote at the end of the field
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 39479 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 39494 : Variable PostalAddress with value <"DESCARTES (AVENUE ""DU M...> : missing double-quote at the end of the field
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 39494 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 39508 : Variable PostalAddress with value <"PAUL VAILLANT COUTURIER ...> : missing double-quote at the end of the field
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 39508 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 39522 : Variable PostalAddress with value <"PAUL VAILLANT COUTURIER ...> : missing double-quote at the end of the field
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 39522 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 39526 : Variable PostalAddress with value <"PAUL VAILLANT COUTURIER ...> : missing double-quote at the end of the field
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 39526 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 39539 : Variable PostalAddress with value <"8 MAI 45 (AVENUE ""N° 2...> : missing double-quote at the end of the field
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 39539 : Ignored record, bad field number (12 read fields for 15 expected fields)
-warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Record 40812 : Variable PostalAddress with value <"LANDY RD 20, NR IMPAIRS ...> : missing double-quote at the end of the field
-warning : Data table : ...
-Database parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet: Read records: 57,783	Selected records: 0
-  Table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet Records: 40,541
-  Table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Vehicles.parquet Records: 69,257
-  Table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Users.parquet Records: 130,164
-Data preparation time: 0:00:11.75
-warning : No training: database is empty
+Variable construction time: 0:01:22.74 (100 constructed variables)
+Train supervised model for classification of target variable Gravity
+Database parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet: Read records: 57,783	Selected records: 40,561
+  Table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet Records: 40,561
+  Table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Vehicles.parquet Records: 69,294
+  Table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Users_medium.parquet Records: 1,431,782
+Computation of 10 distinct decision trees
+Data preparation time: 0:00:35.22
+SNB train time: 0:00:01.83
+Build Selective Naive Bayes SNB_Accident
+Train evaluation of Selective Naive Bayes on database parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet
+Test evaluation of Selective Naive Bayes on database parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet
 Write report C:\Users\KXFJ3896\Documents\parquet_reader\scenarios\cd_dm_train\T_files\AllReports.khj
 

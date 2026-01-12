@@ -28,8 +28,9 @@ TrainDatabase.DatabaseFiles.DataTableName parquet://C/Users/Public/khiops_data/s
 TrainDatabase.DatabaseFiles.List.Key Accident`Vehicles       // List item selection
 TrainDatabase.DatabaseFiles.DataTableName parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Vehicles.parquet     // Data table file
 TrainDatabase.DatabaseFiles.List.Key Accident`Vehicles`Users // List item selection
-TrainDatabase.DatabaseFiles.DataTableName parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Users.parquet // Data table file
-TrainDatabase.SelectionAttribute Gravity // Selection variable
+TrainDatabase.DatabaseFiles.DataTableName parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Users_medium.parquet // Data table file
+AnalysisSpec.TargetAttributeName Gravity // Target variable
+AnalysisSpec.PredictorsSpec.SelectiveNaiveBayesPredictor true         // Selective Naive Bayes predictor
 AnalysisResults.ResultFilesDirectory C:\Users\KXFJ3896\Documents\parquet_reader\scenarios\cd_dm_train\T_files     // Result files directory
 
 LearningTools.ComputeStats     // Train model
