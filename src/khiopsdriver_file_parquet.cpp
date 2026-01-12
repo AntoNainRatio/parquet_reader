@@ -421,7 +421,9 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 			readcount += nb_to_copy;
 			parquetFile->pos += nb_to_copy;
 		}
-		cur_offset += escaped.size(); // Pb: si on ne lit pas tout la valeur ?
+		cur_offset += escaped.size(); // Ok meme si toute valeur non lu car 
+		//								 si la valeur est pas lu entierement cela signifie qu'on a fini de lire
+		
 		col++;
 		if (col == batch->num_columns()) {
 			row++;
