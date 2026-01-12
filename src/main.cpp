@@ -81,10 +81,10 @@ int read_whole_file(const std::string path) {
         if (code != -1) {
             std::cout << "Read bytes = " << code << "\n";
 
-            /*((char*)buf)[code] = 0;
+            ((char*)buf)[code] = 0;
             std::cout << "Buffer contains: " << std::endl << (char*)buf << "<-EOF" << std::endl;
 
-            std::cout << std::endl;*/
+            std::cout << std::endl;
 
             curr += code;
         }
@@ -106,7 +106,8 @@ int read_whole_file(const std::string path) {
 
 int main() {
     //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
-    const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/hard.parquet";
+    //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/hard.parquet";
+    const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/test.parquet";
     //const std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
 
     int error = 0;

@@ -20,41 +20,11 @@ struct HeaderIndex {
 };
 
 
-struct ValueIndex {
-    uint32_t row_index;             // index de la ligne dans le row group
-
-    uint64_t value_logical_start;   // Position logique globale (en bytes)
-    uint64_t value_logical_end;     // logical_offset_start + byte_len - 1
-
-    uint32_t byte_len;              // taille brute de la valeur après décodage
-
-};
-
-struct PageIndex {
-    uint32_t page_index;            // numéro de la page dans la colonne
-
-    uint64_t page_logical_start;    // offset logique global du début de la page
-    uint64_t page_logical_end;      // offset logique global de la fin de la page
-
-    std::vector<ValueIndex> values; // index des valeurs présentes dans la page
-};
-
-struct ColumnIndex {
-    int column_id;
-
-    uint64_t column_logical_start;
-    uint64_t column_logical_end;
-
-    std::vector<PageIndex> pages;
-};
-
 struct RowGroupIndex {
     int row_group_id;
 
     uint64_t rowgroup_logical_start;
     uint64_t rowgroup_logical_end;
-
-    std::vector<ColumnIndex> columns;
 };
 
 
@@ -66,10 +36,10 @@ class ParquetFile {
 
         std::vector<HeaderIndex> headers;
 		std::vector<RowGroupIndex> row_groups; // vector containing all metadata logical index
+        
+        char sep;
 
-        std::unique_ptr<parquet::arrow::FileReader> reader;
-
-		std::vector <std::shared_ptr<parquet::ColumnReader>> column_readers;
+        std::shared_ptr<parquet::arrow::FileReader> reader;
 
         std::shared_ptr<parquet::FileMetaData> metadata;
 
@@ -92,19 +62,9 @@ class ParquetFile {
 
         void dumpInfo();
 
-        bool findValueAtLogicalPosition(size_t& out_row_group,
-            size_t& out_column,
-            size_t& out_page,
-            size_t& out_value,
-            size_t& out_header);
+        int32_t find_row_group(size_t& header);
 
         bool readHeader(size_t header, std::string& out_bytes);
 
-        bool readValue(int rg,
-                       int col,
-                       int page,
-                       int value,
-                       std::vector<uint8_t>& out_bytes);
-
-		bool openColumnReaders(int rg);
+        std::vector<std::shared_ptr<arrow::RecordBatch>> read(size_t row_group);
 };

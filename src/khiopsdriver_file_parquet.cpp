@@ -224,7 +224,7 @@ long long int driver_getFileSize(const char* filename)
 		return -1;
 	}
 
-	std::cout << "driver_getFileSize called: filename=" << filename << std::endl;
+	// std::cout << "driver_getFileSize called: filename=" << filename << std::endl;
 
 	valid_path[0] = file_path[0];
 	valid_path[1] = ':';
@@ -251,7 +251,7 @@ void* driver_fopen(const char* filename, char mode)
 		LogError("driver_fopen: Invalid mode or NULL filename.");
 		return nullptr;
 	}
-	std::cout << "driver_fopen called: filename=" << filename << ", mode=" << mode << std::endl;
+	// std::cout << "driver_fopen called: filename=" << filename << ", mode=" << mode << std::endl;
 
 	// Temporary solution because Khiops accept only one ':' 
 	// so impossible because this driver need the scheme (parquet://...)
@@ -287,7 +287,7 @@ void* driver_fopen(const char* filename, char mode)
 
 int driver_fclose(void* stream)
 {
-	std::cout << "driver_fclose called." << std::endl;
+	//std::cout << "driver_fclose called." << std::endl;
 	if (!stream) {
 		LogError("driver_fclose: NULL ParquetFile pointer.");
 		return EOF;
@@ -312,7 +312,7 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 		LogError("driver_fread: NULL pointer argument.");
 		return -1;
 	}
-	std::cout << "driver_fread called: size=" << size << ", count=" << count << std::endl;
+	// std::cout << "driver_fread called: size=" << size << ", count=" << count << std::endl;
 
 	ParquetFile* parquetFile = static_cast<ParquetFile*>(stream);
 	if (!parquetFile->isOpen()) {
@@ -323,18 +323,21 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 	size_t totalBytesToRead = size * count;
 	size_t readcount = 0;
 
-	size_t rg = 0, col = 0, page = 0, val = 0;
+	// finding the row group or header at current position
+
 	size_t header = -1;
-	if (!parquetFile->findValueAtLogicalPosition(rg, col, page, val, header)) { 
-		return 0; 
+	size_t rg_id = parquetFile->find_row_group(header);
+	if (rg_id == -1 && header == -1) {
+		return 0;
 	}
 	else if (header != -1) {
-		while (readcount < totalBytesToRead && header < parquetFile->headers.size()) {
+		while (header < parquetFile->headers.size() && readcount < totalBytesToRead) {
+			// TODO: will need a loop to read headers until end of headers or totalBytesToRead reached
 			auto value_logical_start = parquetFile->headers[header].header_logical_start;
 			size_t offset_in_value = parquetFile->pos - value_logical_start;
 
 			std::string value;
-			if(!parquetFile->readHeader(header, value)) return -1;
+			if (!parquetFile->readHeader(header, value)) return -1;
 
 			size_t valueSize = value.size();
 
@@ -349,101 +352,157 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 				header++;
 			}
 		}
+
+		rg_id = 0;
 	}
 
-	while (readcount < totalBytesToRead)
+	// reading row group
+	std::vector<std::shared_ptr<arrow::RecordBatch>> batches = parquetFile->read(rg_id);
+
+	size_t col = 0;
+	size_t row = 0;
+	size_t batch_id = 0;
+	
+	// find where we are in the batch
+	auto logical_start = parquetFile->row_groups[rg_id].rowgroup_logical_start;
+	int64_t offset_in_rg = parquetFile->pos - logical_start;
+	int64_t cur_offset = 0;
+
+
+	std::string value;
+	while (cur_offset < offset_in_rg) {
+		std::shared_ptr<arrow::RecordBatch> batch = batches[batch_id];
+		std::shared_ptr<arrow::Array> array = batch->column(col);
+		
+		value = array->GetScalar(row)->get()->ToString();
+
+		bool need_quote = false;
+		for (size_t i = 0; i < value.size(); i++) {
+			if (value[i] == parquetFile->sep || value[i] == '"' || value[i] == '\n') {
+				need_quote = true;
+				break;
+			}
+		}
+
+		std::string escaped;
+		if (!need_quote) {
+			escaped = value;
+		}
+		else {
+			escaped = '"';
+			for (size_t i = 0; i < value.size(); i++) {
+				if (value[i] == '"') {
+					escaped.push_back('"');
+				}
+				escaped.push_back(value[i]);
+			}
+			escaped.push_back('"');
+		}
+
+
+		if (col == batch->num_columns() - 1) {
+			escaped.push_back('\n');
+		}
+		else
+		{
+			escaped.push_back(parquetFile->sep);
+		}
+
+
+		if (cur_offset + escaped.size() >= offset_in_rg) {
+			size_t offset_in_value = offset_in_rg - cur_offset;
+			int64_t to_read_from_value = escaped.size() - offset_in_value;
+			int64_t remaining_bytes = totalBytesToRead - readcount;
+
+			int64_t nb_to_copy = min(to_read_from_value, remaining_bytes);
+
+			std::memcpy(out + readcount, escaped.data() + offset_in_value, nb_to_copy);
+
+			readcount += nb_to_copy;
+			parquetFile->pos += nb_to_copy;
+		}
+		cur_offset += escaped.size(); // Pb: si on ne lit pas tout la valeur ?
+		col++;
+		if (col == batch->num_columns()) {
+			row++;
+			col = 0;
+		}
+		if (row == batch->num_rows()) {
+			batch_id++;
+			row = 0;
+		}
+	}
+
+	while (readcount < totalBytesToRead && parquetFile->pos < parquetFile->logical_size)
 	{
-		// reading value at offset
-		std::vector<uint8_t> valueBytes;
+		std::shared_ptr<arrow::RecordBatch> batch = batches[batch_id];
+		std::shared_ptr<arrow::Array> array = batch->column(col);
 
-		auto value_logical_start = parquetFile->row_groups[rg].columns[col].pages[page].values[val].value_logical_start;
-		int64_t offset_in_value = parquetFile->pos - value_logical_start;
+		value = array->GetScalar(row)->get()->ToString();
 
-		parquetFile->readValue(rg, col, page, val, valueBytes);
-		size_t valueSize = valueBytes.size();
+		bool need_quote = false;
+		for (size_t i = 0; i < value.size(); i++) {
+			if (value[i] == parquetFile->sep || value[i] == '"' || value[i] == '\n') {
+				need_quote = true;
+				break;
+			}
+		}
 
-		int64_t to_read_from_value = valueSize - offset_in_value;
+		std::string escaped;
+		if (!need_quote) {
+			escaped = value;
+		}
+		else {
+			escaped = '"';
+			for (size_t i = 0; i < value.size(); i++) {
+				if (value[i] == '"') {
+					escaped.push_back('"');
+				}
+				escaped.push_back(value[i]);
+			}
+			escaped.push_back('"');
+		}
+
+		if (col == batch->num_columns() - 1) {
+			escaped.push_back('\n');
+		}
+		else
+		{
+			escaped.push_back(parquetFile->sep);
+		}
+
+		size_t valueSize = escaped.size();
+
 		int64_t remaining_bytes = totalBytesToRead - readcount;
 
-		int64_t nb_to_copy = min(to_read_from_value, remaining_bytes);
+		int64_t nb_to_copy = min(valueSize, remaining_bytes);
 
-		std::memcpy(out + readcount, valueBytes.data()+offset_in_value, nb_to_copy);
+		std::memcpy(out + readcount, escaped.data(), nb_to_copy);
+		
 		readcount += nb_to_copy;
 
 		parquetFile->pos += nb_to_copy;
 
-		if (nb_to_copy + offset_in_value < valueSize) {
-			parquetFile->column_readers[col] = parquetFile->reader->parquet_reader()->RowGroup(rg)->Column(col);
-			
-			auto phys = parquetFile->metadata->schema()->Column(col)->physical_type();
-
-			ValueIndex v = parquetFile->row_groups[rg].columns[col].pages[page].values[val];
-			if (v.row_index != 0) {
-				switch (phys) {
-				case parquet::Type::BOOLEAN:
-					dynamic_cast<TypedColumnReader<parquet::BooleanType>*>(parquetFile->column_readers[col].get())
-						->Skip(v.row_index);
-					break;
-				case parquet::Type::INT32:
-					dynamic_cast<TypedColumnReader<parquet::Int32Type>*>(parquetFile->column_readers[col].get())
-						->Skip(v.row_index);
-					break;
-				case parquet::Type::INT64:
-					dynamic_cast<TypedColumnReader<parquet::Int64Type>*>(parquetFile->column_readers[col].get())
-						->Skip(v.row_index);
-					break;
-				case parquet::Type::FLOAT:
-					dynamic_cast<TypedColumnReader<parquet::FloatType>*>(parquetFile->column_readers[col].get())
-						->Skip(v.row_index);
-					break;
-				case parquet::Type::DOUBLE:
-					dynamic_cast<TypedColumnReader<parquet::DoubleType>*>(parquetFile->column_readers[col].get())
-						->Skip(v.row_index);
-					break;
-				case parquet::Type::BYTE_ARRAY:
-					dynamic_cast<TypedColumnReader<parquet::ByteArrayType>*>(parquetFile->column_readers[col].get())
-						->Skip(v.row_index);
-					break;
-				default:
-					return -1;
-				}
-			}
+		col++;
+		if (col >= batch->num_columns()) {
+			row++;
+			col = 0;
 		}
-		else {
-
-			const RowGroupIndex& rg_idx = parquetFile->row_groups[rg];
-			const ColumnIndex& col_idx = rg_idx.columns[col];
-			const PageIndex& page_idx = col_idx.pages[page];
-
-			col++;
-
-			if (col >= rg_idx.columns.size()) {
-				col = 0;
-				val++;
+		if (row >= batch->num_rows()) {
+			batch_id++;
+			row = 0;
+		}
+		if (batch_id >= batches.size()) {
+			// finished this row group
+			rg_id++;
+			if (rg_id >= parquetFile->row_groups.size()) {
+				// finished all row groups
+				break;
 			}
-
-			if (val >= page_idx.values.size()) {
-				val = 0;
-				page++;
-			}
-
-			if (page >= col_idx.pages.size()) {
-				page = 0;
-				rg++;
-
-				// Fin fichier
-				if (rg >= (int)parquetFile->row_groups.size()) {
-					break;
-				}
-
-				// Ouvrir les column readers du nouveau row group
-				parquetFile->column_readers.clear();
-				parquetFile->column_readers.resize(parquetFile->metadata->num_columns());
-				if (!parquetFile->openColumnReaders(static_cast<int>(rg))) {
-					LogError("driver_fread: Unable to open column readers for new row group.");
-					return -1;
-				}
-			}
+			batches = parquetFile->read(rg_id);
+			batch_id = 0;
+			row = 0;
+			col = 0;
 		}
 	}
 
@@ -456,7 +515,7 @@ int driver_fseek(void* stream, long long int offset, int whence)
 		LogError("driver_fseek: NULL ParquetFile pointer.");
 		return -1;
 	}
-	std::cout << "driver_fseek called: offset=" << offset << ", whence=" << whence << std::endl;
+	// std::cout << "driver_fseek called: offset=" << offset << ", whence=" << whence << std::endl;
 
 	ParquetFile* parquetFile = static_cast<ParquetFile*>(stream);
 	if (!parquetFile->isOpen()) {
@@ -491,84 +550,7 @@ int driver_fseek(void* stream, long long int offset, int whence)
 		return -1;
 	}
 
-	if (newPos < parquetFile->pos) {
-		parquetFile->pos = newPos;
-
-		size_t rg = 0, col = 0, page = 0, val = 0;
-		size_t header = -1;
-		if (!parquetFile->findValueAtLogicalPosition(rg, col, page, val, header)) {
-			LogError("driver_fseek: Unable to find value position after pointer going back.");
-			return -1;
-		}
-
-		parquetFile->column_readers.clear();
-		parquetFile->column_readers.resize(parquetFile->metadata->num_columns());
-
-		if (!parquetFile->openColumnReaders(static_cast<int>(rg))) {
-			LogError("driver_fseek: Unable to open new ColumnReaders.");
-			return -1;
-		}
-
-		std::vector<uint64_t> rows_to_skip(parquetFile->metadata->num_columns(), 0);
-
-		// get target row to skip
-		uint32_t target_row = parquetFile
-			->row_groups[rg]
-			.columns[col]
-			.pages[page]
-			.values[val]
-			.row_index;
-
-		for (size_t index_col = col; index_col < col + parquetFile->metadata->num_columns(); index_col++) {
-			size_t index = index_col % parquetFile->metadata->num_columns();
-			rows_to_skip[index] = target_row;
-			if (index_col == parquetFile->metadata->num_columns() - 1) {
-				target_row++;
-			}
-		}
-
-		// skip on every column reader
-		for (size_t c = 0; c < parquetFile->column_readers.size(); ++c) {
-			auto& reader = parquetFile->column_readers[c];
-			if (!reader)
-				return -1;
-
-			auto phys = parquetFile->metadata->schema()->Column(c)->physical_type();
-
-			if (target_row == 0)
-				continue;
-
-			switch (phys) {
-			case parquet::Type::BOOLEAN:
-				dynamic_cast<TypedColumnReader<parquet::BooleanType>*>(reader.get())
-					->Skip(rows_to_skip[c]);
-				break;
-			case parquet::Type::INT32:
-				dynamic_cast<TypedColumnReader<parquet::Int32Type>*>(reader.get())
-					->Skip(rows_to_skip[c]);
-				break;
-			case parquet::Type::INT64:
-				dynamic_cast<TypedColumnReader<parquet::Int64Type>*>(reader.get())
-					->Skip(rows_to_skip[c]);
-				break;
-			case parquet::Type::FLOAT:
-				dynamic_cast<TypedColumnReader<parquet::FloatType>*>(reader.get())
-					->Skip(rows_to_skip[c]);
-				break;
-			case parquet::Type::DOUBLE:
-				dynamic_cast<TypedColumnReader<parquet::DoubleType>*>(reader.get())
-					->Skip(rows_to_skip[c]);
-				break;
-			case parquet::Type::BYTE_ARRAY:
-				dynamic_cast<TypedColumnReader<parquet::ByteArrayType>*>(reader.get())
-					->Skip(rows_to_skip[c]);
-				break;
-			default:
-				return -1;
-			}
-		}
-		return 0;
-	}
+	
 	parquetFile->pos = newPos;
 	return 0;
 }
