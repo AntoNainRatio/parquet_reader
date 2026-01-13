@@ -1,0 +1,4 @@
+error : File parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Unable to open file (driver_fopen: Unable to open parquet file.)
+error : Database format detector parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : No possible format detection
+error : File parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet : Unable to open file (driver_fopen: Unable to open parquet file.)
+error : Command file : Replay failure	: OK 

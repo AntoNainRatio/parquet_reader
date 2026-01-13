@@ -1,0 +1,44 @@
+// 2025-10-01 16:39:33
+// khiops
+// Output command file
+//
+//This file contains recorded commands, that can be replayed.
+//Commands are based on user interactions:
+//	field update
+//	list item selection
+//	menu action
+//Every command can be commented, using //.
+//For example, commenting the last Exit command will allow other
+//user interactions, after the commands have been replayed.
+//
+//
+
+// -> Khiops
+ClassManagement.BuildClassDefButton      // Build dictionary from data table...
+
+// -> Dictionary builder
+SourceDataTable.DatabaseName parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet         // Data table file
+SourceDataTable.DatabaseFormatDetector.DetectFileFormat      // Detect file format
+BuildClassDef                  // Build dictionary from data table
+
+// -> Dictionary builder
+OK                             // OK
+// <- Dictionary builder
+
+Exit                           // Close
+// <- Dictionary builder
+
+
+// -> Save as
+ClassFileName C:\Users\KXFJ3896\Documents\parquet_reader\scenarios\output\Accidents.kdic      // Dictionary file
+OK                             // Save
+// <- Save as
+
+Exit                           // Close
+// <- Khiops
+
+
+// -> Khiops
+OK                             // Yes
+// <- Khiops
+

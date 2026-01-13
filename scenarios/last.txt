@@ -1,0 +1,2 @@
+fatal error : Global exception : Erreur lors de l'ouverture du fichier en lecture.
+error : Command file : Replay failure	: BuildClassDef 

@@ -1,0 +1,10 @@
+Check database C:/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.txt
+warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet : Record 14408 : Variable RoadNumber with value <"   TwoWay 2 0 Uphill   S...> : missing double-quote at the end of the field
+warning : Data table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet : Record 14408 : Ignored record, bad field number (3 read fields for 18 expected fields)
+Input database C:/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.txt: Read records: 57,783	Selected records: 40,561
+  Table parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet Records: 40,560
+  Table C:/Users/Public/khiops_data/samples/AccidentsMedium/Vehicles.txt Records: 69,294
+  Table C:/Users/Public/khiops_data/samples/AccidentsMedium/Users.txt Records: 130,156
+Checked database C:/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.txt: Checked records: 40,561
+Database check time: 0:00:05.35
+

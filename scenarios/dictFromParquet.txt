@@ -1,0 +1,5 @@
+error : File parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet : Problem with seek in file (No such file or directory)
+error : Database format detector parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet : First line too long (beyond 8.0 MB)
+error : File parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet : Problem with seek in file (No such file or directory)
+error : File parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet : Unable to read first line
+error : Command file : Replay failure	: OK 

@@ -1,0 +1,20 @@
+#Khiops 10.3.0
+
+Dictionary	Accidents
+{
+	Numerical	AccidentId		;	
+	Categorical	Gravity		;	
+	Date	Date		;	
+	Time	Hour		;	
+	Categorical	Light		;	
+	Numerical	Department		;	
+	Numerical	Commune		;	
+	Categorical	InAgglomeration		;	
+	Categorical	IntersectionType		;	
+	Categorical	Weather		;	
+	Categorical	CollisionType		;	
+	Categorical	PostalAddress		;	
+	Categorical	GPSCode		;	
+	Numerical	Latitude		;	
+	Numerical	Longitude		;	
+};

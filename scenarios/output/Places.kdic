@@ -1,0 +1,23 @@
+#Khiops 10.3.0
+
+Dictionary	Places
+{
+	Numerical	AccidentId		;	
+	Categorical	RoadType		;	
+	Categorical	RoadNumber		;	
+	Numerical	RoadSecNumber		;	
+	Categorical	RoadLetter		;	
+	Categorical	Circulation		;	
+	Numerical	LaneNumber		;	
+	Categorical	SpecialLane		;	
+	Categorical	Slope		;	
+	Numerical	RoadMarkerId		;	
+	Numerical	RoadMarkerDistance		;	
+	Categorical	Layout		;	
+	Numerical	StripWidth		;	
+	Numerical	LaneWidth		;	
+	Categorical	SurfaceCondition		;	
+	Categorical	Infrastructure		;	
+	Categorical	Localization		;	
+	Numerical	SchoolNear		;	
+};

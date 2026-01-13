@@ -1,0 +1,13 @@
+AccidentId	VehicleId	Direction	Category	PassengerNumber	FixedObstacle	MobileObstacle	ImpactPoint	Maneuver
+201800000001	A01	Unknown	Car<=3.5T	0		Vehicle	RightFront	TurnToLeft
+201800000001	B01	Unknown	Car<=3.5T	0		Vehicle	LeftFront	NoDirectionChange
+201800000002	A01	Unknown	Car<=3.5T	0		Pedestrian		NoDirectionChange
+201800000003	A01	Unknown	Motorbike>125cm3	0	StationaryVehicle	Vehicle	Front	NoDirectionChange
+201800000003	B01	Unknown	Car<=3.5T	0		Vehicle	LeftSide	TurnToLeft
+201800000003	C01	Unknown	Car<=3.5T	0			RightSide	Parked
+201800000004	A01	Unknown	Car<=3.5T	0		Other	RightFront	Avoidance
+201800000004	B01	Unknown	Bicycle	0		Vehicle	LeftSide	
+201800000005	A01	Unknown	Moped	0		Vehicle	RightFront	PassLeft
+201800000005	B01	Unknown	Car<=3.5T	0		Vehicle	LeftFront	Park
+201800000006	A01	Unknown	Car<=3.5T	0	BuildingWallOrPier	Pedestrian	RightFront	NoDirectionChange
+201800000007	A01	Unknown	Car<=3.5T	0	Post		LeftSide	

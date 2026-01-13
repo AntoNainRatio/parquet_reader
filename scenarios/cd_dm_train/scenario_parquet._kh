@@ -1,0 +1,45 @@
+// 2025-10-07 14:29:27
+// khiops
+// Output command file
+//
+//This file contains recorded commands, that can be replayed.
+//Commands are based on user interactions:
+//	field update
+//	list item selection
+//	menu action
+//Every command can be commented, using //.
+//For example, commenting the last Exit command will allow other
+//user interactions, after the commands have been replayed.
+//
+//
+
+// -> Khiops
+ClassManagement.OpenFile       // Open...
+
+// -> Open
+ClassFileName C:\Users\Public\khiops_data\samples\AccidentsMedium\Accidents.kdic // Dictionary file
+OK                             // Open
+// <- Open
+
+TrainDatabase.DatabaseFiles.List.Key Accident      // List item selection
+TrainDatabase.DatabaseFiles.DataTableName parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet    // Data table file
+TrainDatabase.DatabaseFiles.List.Key Accident`Place          // List item selection
+TrainDatabase.DatabaseFiles.DataTableName parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet       // Data table file
+TrainDatabase.DatabaseFiles.List.Key Accident`Vehicles       // List item selection
+TrainDatabase.DatabaseFiles.DataTableName parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Vehicles.parquet     // Data table file
+TrainDatabase.DatabaseFiles.List.Key Accident`Vehicles`Users // List item selection
+TrainDatabase.DatabaseFiles.DataTableName parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Users_medium.parquet // Data table file
+AnalysisSpec.TargetAttributeName Gravity // Target variable
+AnalysisSpec.PredictorsSpec.SelectiveNaiveBayesPredictor true         // Selective Naive Bayes predictor
+AnalysisResults.ResultFilesDirectory C:\Users\KXFJ3896\Documents\parquet_reader\scenarios\cd_dm_train\T_files     // Result files directory
+
+LearningTools.ComputeStats     // Train model
+
+Exit                           // Close
+// <- Khiops
+
+
+// -> Khiops
+OK                             // Yes
+// <- Khiops
+
