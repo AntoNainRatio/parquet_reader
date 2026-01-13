@@ -79,7 +79,8 @@ int read_whole_file(const std::string path) {
         long long code = driver_fread(buf, 1, buffer_size, driver);
 
         if (code != -1) {
-            std::cout << "Read bytes = " << code << "\n";
+            std::cout << "Read bytes = " << code << std::endl;
+            std::cout << "Total = " << curr << std::endl;
 
             /*((char*)buf)[code] = 0;
             std::cout << "Buffer contains: " << std::endl << (char*)buf << "<-EOF" << std::endl;
@@ -106,8 +107,8 @@ int read_whole_file(const std::string path) {
 
 int main() {
     //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
-    const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/hard.parquet";
-    //const std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
+    //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/hard.parquet";
+    const std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
 
     int error = 0;
 
