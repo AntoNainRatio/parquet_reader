@@ -17,7 +17,7 @@
 using parquet::TypedColumnReader;
 using parquet::Type;
 
-char separator = '\t';
+char sep = '\t';
 
 void ParquetFile::BuildLogicalIndex() {
     if (!reader || !metadata)
@@ -28,8 +28,6 @@ void ParquetFile::BuildLogicalIndex() {
     uint32_t num_row_groups = metadata->num_row_groups();
     uint32_t num_columns = metadata->num_columns();
 
-    sep = separator;
-
     headers.clear();
     headers.reserve(num_columns);
 
@@ -38,7 +36,7 @@ void ParquetFile::BuildLogicalIndex() {
     for (uint32_t i = 0; i < num_columns; ++i) {
         const parquet::ColumnDescriptor* col = schema->Column(i);
         const auto& path = col->path()->ToDotString();
-        
+
         HeaderIndex header_idx;
         header_idx.col_index = i;
         header_idx.header_logical_start = global_offset;
@@ -59,49 +57,168 @@ void ParquetFile::BuildLogicalIndex() {
         RowGroupIndex rg_idx;
         rg_idx.row_group_id = rg;
         rg_idx.rowgroup_logical_start = global_offset;
+        rg_idx.columns.resize(num_columns);
 
-        std::vector<std::shared_ptr<arrow::RecordBatch>> batches = read(rg);
+        auto rg_reader = parquet_reader->RowGroup(rg);
+        uint32_t num_rows = rg_reader->metadata()->num_rows();
 
-        size_t col = 0;
-        size_t row = 0;
-        size_t batch_id = 0;
+        // Ouvrir tous les ColumnReader en avance
+        std::vector<std::shared_ptr<parquet::ColumnReader>> col_readers(num_columns);
+        for (uint32_t col = 0; col < num_columns; col++) {
+            col_readers[col] = rg_reader->Column(col);
 
-        while (batch_id < batches.size())
+            rg_idx.columns[col].column_id = col;
+            rg_idx.columns[col].column_logical_start = global_offset;  //  KO
+
+            // Initialiser une page vide
+            PageIndex first_page;
+            first_page.page_index = 0;
+            first_page.page_logical_start = global_offset;  //  KO
+            rg_idx.columns[col].pages.push_back(first_page);
+        }
+
+        // Lecture en mode row-major
+        for (uint32_t row = 0; row < num_rows; row++)
         {
-            std::shared_ptr<arrow::RecordBatch> batch = batches[batch_id];
-            std::shared_ptr<arrow::Array> array = batch->column(col);
+            for (uint32_t col = 0; col < num_columns; col++)
+            {
+                auto phys = metadata->schema()->Column(col)->physical_type();
+                auto& col_reader = col_readers[col];
 
-            std::string value = array->GetScalar(row)->get()->ToString();
+                ValueIndex v;
+                v.row_index = row;
+                v.byte_len = 0;
 
-            bool need_quote = false;
-            for (size_t i = 0; i < value.size(); i++) {
-                char c = value[i];
-                if (value[i] == sep || value[i] == '"' || value[i] == '\n') {
-                    need_quote = true;
+                std::vector<uint8_t> tmp;
+
+                // ---- Lire UNE SEULE VALEUR par colonne ----
+                int64_t values_read = 0;
+
+                switch (phys)
+                {
+                case parquet::Type::INT32: {
+                    int32_t val;
+                    auto typed = dynamic_cast<parquet::TypedColumnReader<parquet::Int32Type>*>(col_reader.get());
+                    typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
+                    std::string s = std::to_string(val);
+                    v.byte_len = s.size() + 1;
                     break;
                 }
-            }
-            if (need_quote) {
-                global_offset += 2;             // both '"'
-                global_offset += std::ranges::count(value, '"');     // inside '"' are doubled
-            }
-            global_offset += value.size() + 1;  // value's size and newline or sep everytime
 
+                case parquet::Type::INT64: {
+                    int64_t val;
+                    auto typed = dynamic_cast<parquet::TypedColumnReader<parquet::Int64Type>*>(col_reader.get());
+                    typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
+                    std::string s = std::to_string(val);
+                    v.byte_len = s.size() + 1;
+                    break;
+                }
 
-            col++;
-            if (col >= batch->num_columns()) {
-                row++;
-                col = 0;
-            }
-            if (row >= batch->num_rows()) {
-                batch_id++;
-                row = 0;
+                case parquet::Type::FLOAT: {
+                    float val;
+                    auto typed = dynamic_cast<parquet::TypedColumnReader<parquet::FloatType>*>(col_reader.get());
+                    typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
+                    std::string s = std::to_string(val);
+                    v.byte_len = s.size() + 1;
+                    break;
+                }
+
+                case parquet::Type::DOUBLE: {
+                    double val;
+                    auto typed = dynamic_cast<parquet::TypedColumnReader<parquet::DoubleType>*>(col_reader.get());
+                    typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
+                    std::string s = std::to_string(val);
+                    v.byte_len = s.size() + 1;
+                    break;
+                }
+
+                case parquet::Type::BYTE_ARRAY: {
+                    auto* typed =
+                        dynamic_cast<TypedColumnReader<parquet::ByteArrayType>*>(col_reader.get());
+                    if (!typed) throw std::runtime_error("Couldn't open ByteArray column reader");
+
+                    parquet::ByteArray value;
+                    int64_t values_read = 0;
+
+                    typed->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+
+                    if (values_read <= 0 || value.ptr == nullptr || value.len == 0) {
+                        v.byte_len = 1; // empty value but still need separator
+                        break;
+                    }
+                    else {
+                        const uint8_t* ptr = value.ptr;
+                        size_t len = value.len;
+
+                        bool need_quote = false;
+                        for (size_t i = 0; i < len; ++i) {
+                            char c = static_cast<char>(ptr[i]);
+                            if (c == '"' || c == '\n' || c == '\r' || c == sep) {
+                                need_quote = true;
+                                break;
+                            }
+                        }
+
+                        if (!need_quote) {
+                            v.byte_len = len;
+                        }
+                        else {
+                            v.byte_len++;
+                            for (size_t i = 0; i < len; ++i) {
+                                char c = static_cast<char>(ptr[i]);
+                                if (c == '"') {
+                                    v.byte_len++;
+                                }
+                            }
+                            v.byte_len += len;
+                            v.byte_len++;
+                        }
+                        v.byte_len += 1;
+                    }
+                    break;
+                }
+
+                                              /*case parquet::Type::FIXED_LEN_BYTE_ARRAY: {
+                                                  int32_t type_len = metadata->schema()->Column(col)->type_length();
+                                                  parquet::FixedLenByteArray flba;
+                                                  auto typed = dynamic_cast<parquet::TypedColumnReader<parquet::FixedLenByteArrayType>*>(col_reader.get());
+                                                  typed->ReadBatch(1, nullptr, nullptr, &flba, &values_read);
+                                                  v.byte_len = type_len;
+                                                  tmp.resize(v.byte_len);
+                                                  memcpy(tmp.data(), flba.ptr, type_len);
+                                                  break;
+                                              }*/
+
+                default:
+                    throw std::runtime_error("Unsupported type");
+                }
+
+                // Indexation logique
+                v.value_logical_start = global_offset;
+                v.value_logical_end = global_offset + v.byte_len;
+
+                global_offset += v.byte_len;
+
+                // Ajouter dans la seule page existante
+                auto& col_idx = rg_idx.columns[col];
+                col_idx.pages.back().values.push_back(v);
             }
         }
 
-        rg_idx.rowgroup_logical_end = global_offset;
+        // Finaliser fin de pages et colonnes
+        for (uint32_t col = 0; col < num_columns; col++)
+        {
+            auto& c = rg_idx.columns[col];
+            c.pages.back().page_logical_end = global_offset - 1;
+            c.column_logical_end = global_offset - 1;
+        }
 
+        rg_idx.rowgroup_logical_end = global_offset - 1;
         row_groups.push_back(rg_idx);
+
+        for (uint32_t col = 0; col < num_columns; col++) {
+            this->column_readers.push_back(rg_reader->Column(col));
+        }
     }
 
     logical_size = global_offset;
@@ -124,7 +241,7 @@ ParquetFile::ParquetFile(const std::string& path) {
 
     BuildLogicalIndex();
 
-	is_open = true;
+    is_open = true;
 }
 
 ParquetFile::~ParquetFile() {}
@@ -136,24 +253,78 @@ void ParquetFile::dumpInfo() {
     for (size_t rg = 0; rg < this->row_groups.size(); rg++) {
         RowGroupIndex rg_idx = row_groups[rg];
 
-        std::cout << "row group " << rg << ": start = " << rg_idx.rowgroup_logical_start <<
-            ", end = " << rg_idx.rowgroup_logical_end << std::endl;
+        for (size_t col = 0; col < rg_idx.columns.size(); col++) {
+            ColumnIndex col_idx = rg_idx.columns[col];
+
+            for (size_t page = 0; page < col_idx.pages.size(); page++) {
+                PageIndex page_idx = col_idx.pages[page];
+
+                for (size_t val = 0; val < page_idx.values.size(); val++) {
+                    ValueIndex val_idx = page_idx.values[val];
+
+                    std::cout << "            Dump of ValueIndex: (rg: " << rg << ")-(col: " << col << ")-(page: " << page << ")-(val: " << val << ")" << std::endl;
+                    std::cout << "            value row index in row group: " << val_idx.row_index << std::endl;
+                    std::cout << "            value logical start: " << val_idx.value_logical_start << std::endl;
+                    std::cout << "            value logical end: " << val_idx.value_logical_end << std::endl;
+                    std::cout << "            value logical size: " << val_idx.byte_len << std::endl;
+                    std::cout << "            -------------------" << std::endl;
+
+                }
+            }
+        }
     }
 }
 
-int32_t ParquetFile::find_row_group(size_t& header) {
-    for (size_t i = 0; i < headers.size(); i++) {
-        if (headers[i].header_logical_start <= pos && headers[i].header_logical_end > pos) {
-            header = i;
-            return -1;
+bool ParquetFile::findValueAtLogicalPosition(size_t& out_row_group, size_t& out_column, size_t& out_page, size_t& out_value, size_t& out_header)
+{
+    if (this->pos >= 0 && this->pos <= headers.back().header_logical_end) {
+        for (size_t col = 0; col < this->headers.size(); col++) {
+            if (this->pos >= headers[col].header_logical_start && pos <= headers[col].header_logical_end) {
+                out_header = col;
+                return true;
+            }
+        }
+        return false;
+    }
+    for (size_t rg = 0; rg < this->row_groups.size(); rg++) {
+        RowGroupIndex& rg_idx = row_groups[rg];
+        if (this->pos < rg_idx.rowgroup_logical_start || this->pos > rg_idx.rowgroup_logical_end) {
+            continue;
+        }
+
+        // found row group
+        out_row_group = rg_idx.row_group_id;
+
+        for (size_t col = 0; col < rg_idx.columns.size(); col++) {
+            ColumnIndex& col_idx = rg_idx.columns[col];
+            if (this->pos < col_idx.column_logical_start || this->pos > col_idx.column_logical_end) {
+                continue;
+            }
+
+            // found column
+            out_column = col_idx.column_id;
+
+            for (size_t page = 0; page < col_idx.pages.size(); page++) {
+                PageIndex& page_idx = col_idx.pages[page];
+                if (this->pos < page_idx.page_logical_start || this->pos > page_idx.page_logical_end) {
+                    continue;
+                }
+
+                // found page
+                out_page = page_idx.page_index;
+
+                for (size_t val = 0; val < page_idx.values.size(); val++) {
+                    ValueIndex& val_idx = page_idx.values[val];
+                    if (this->pos >= val_idx.value_logical_start && this->pos <= val_idx.value_logical_end) {
+                        // found value
+                        out_value = val;
+                        return true;
+                    }
+                }
+            }
         }
     }
-    for (int32_t i = 0; i < row_groups.size(); i++) {
-        if (row_groups[i].rowgroup_logical_start <= pos && row_groups[i].rowgroup_logical_end > pos) {
-            return i;
-        }
-    }
-    return -1;
+    return false;
 }
 
 bool ParquetFile::readHeader(size_t header, std::string& out_bytes) {
@@ -169,27 +340,222 @@ bool ParquetFile::readHeader(size_t header, std::string& out_bytes) {
     return true;
 }
 
-
-std::vector<std::shared_ptr<arrow::RecordBatch>> ParquetFile::read(size_t row_group)
+bool ParquetFile::readValue(int rg, int col, int page, int value, std::vector<uint8_t>& out_bytes)
 {
-    std::vector<int> row_groups = { (int)row_group };
+    out_bytes.clear();
 
-    std::shared_ptr<arrow::RecordBatchReader> batch_reader;
-    
-    PARQUET_ASSIGN_OR_THROW(
-        batch_reader,
-        reader->GetRecordBatchReader(row_groups)
-    );
+    if (!this->reader)
+        return false;
 
-    std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
+    if (col < 0 || col >= (int)column_readers.size())
+        return false;
 
-    while (true) {
-        std::shared_ptr<arrow::RecordBatch> batch;
-        PARQUET_ASSIGN_OR_THROW(batch, batch_reader->Next());
-        if (!batch) break;
-        batches.push_back(batch);
+    auto col_reader = column_readers[col];
+    if (!col_reader)
+        return false;
+
+    parquet::Type::type phys = this->metadata->schema()->Column(col)->physical_type();
+
+    ValueIndex to_read = this->row_groups[rg].columns[col].pages[page].values[value];
+
+    int64_t values_read = 0;
+
+    try {
+        switch (phys) {
+        case Type::BOOLEAN: {
+            auto* typed = dynamic_cast<TypedColumnReader<parquet::BooleanType>*>(col_reader.get());
+            if (!typed) return false;
+
+            bool val;
+            int64_t read = typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
+            if (values_read <= 0) { // NULL or nothing
+                return true;
+            }
+            std::string s = std::to_string(val);
+            out_bytes.resize(s.size());
+            std::memcpy(out_bytes.data(), s.data(), s.size());
+            break;
+        }
+        case Type::INT32: {
+            auto* typed = dynamic_cast<TypedColumnReader<parquet::Int32Type>*>(col_reader.get());
+            if (!typed) return false;
+
+            int32_t val;
+            int64_t read = typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
+            if (values_read <= 0) { // NULL or nothing
+                return true;
+            }
+            std::string s = std::to_string(val);
+            out_bytes.resize(s.size());
+            std::memcpy(out_bytes.data(), s.data(), s.size());
+            break;
+        }
+        case Type::INT64: {
+            auto* typed = dynamic_cast<TypedColumnReader<parquet::Int64Type>*>(col_reader.get());
+            if (!typed) return false;
+
+            int64_t val;
+            int64_t read = typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
+            if (values_read <= 0) {
+                return true;
+            }
+            std::string s = std::to_string(val);
+            out_bytes.resize(s.size());
+            std::memcpy(out_bytes.data(), s.data(), s.size());
+            break;
+        }
+                        /*case Type::INT96: {
+                            auto* typed = dynamic_cast<TypedColumnReader<parquet::Int96Type>*>(col_reader.get());
+                            if (!typed) return false;
+
+                            parquet::Int96 val;
+                            int64_t read = typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
+                            if (values_read <= 0) {
+                                out_bytes.clear();
+                                return true;
+                            }
+                            std::string s = std::to_string(val).append(sep);
+                            out_bytes.resize(s.size());
+                            std::memcpy(out_bytes.data(), s.data(), s.size());
+
+                            return true;
+                        }*/
+        case Type::FLOAT: {
+            auto* typed = dynamic_cast<TypedColumnReader<parquet::FloatType>*>(col_reader.get());
+            if (!typed) return false;
+
+            float val;
+            int64_t read = typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
+            if (values_read <= 0) {
+                return true;
+            }
+            std::string s = std::to_string(val);
+            out_bytes.resize(s.size());
+            std::memcpy(out_bytes.data(), s.data(), s.size());
+            break;
+        }
+        case Type::DOUBLE: {
+            auto* typed = dynamic_cast<TypedColumnReader<parquet::DoubleType>*>(col_reader.get());
+            if (!typed) return false;
+
+            double val;
+            int64_t read = typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
+            if (values_read <= 0) {
+                return true;
+            }
+            std::string s = std::to_string(val);
+            out_bytes.resize(s.size());
+            std::memcpy(out_bytes.data(), s.data(), s.size());
+            break;
+        }
+        case Type::BYTE_ARRAY: {
+            auto* typed =
+                dynamic_cast<TypedColumnReader<parquet::ByteArrayType>*>(col_reader.get());
+            if (!typed) return false;
+
+            parquet::ByteArray value;
+            int64_t values_read = 0;
+
+            typed->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+
+            if (values_read <= 0 || value.ptr == nullptr || value.len == 0) {
+                break;
+            }
+            else {
+                const uint8_t* ptr = value.ptr;
+                size_t len = value.len;
+
+                bool need_quote = false;
+                for (size_t i = 0; i < len; ++i) {
+                    char c = static_cast<char>(ptr[i]);
+                    if (c == '"' || c == '\n' || c == '\r' || c == sep) {
+                        need_quote = true;
+                        break;
+                    }
+                }
+
+                if (need_quote) {
+                    out_bytes.reserve(out_bytes.size() + len * 2 + 2);
+                }
+                else {
+                    out_bytes.reserve(out_bytes.size() + len);
+                }
+
+                if (!need_quote) {
+                    out_bytes.insert(out_bytes.end(), ptr, ptr + len);
+                }
+                else {
+                    out_bytes.push_back('"');
+                    for (size_t i = 0; i < len; ++i) {
+                        char c = static_cast<char>(ptr[i]);
+                        if (c == '"') {
+                            out_bytes.push_back('"');
+                        }
+                        out_bytes.push_back(c);
+                    }
+                    out_bytes.push_back('"');
+                }
+            }
+
+            break;
+        }
+
+                             /*case Type::FIXED_LEN_BYTE_ARRAY: {
+                                 auto* typed = dynamic_cast<TypedColumnReader<parquet::ByteArrayType>*>(col_reader.get());
+                                 if (!typed) return false;
+
+                                 int32_t type_len = this->metadata->schema()->Column(col)->type_length();
+
+                                 std::vector<parquet::FixedLenByteArray> buf(1);
+                                 int64_t read = typed->ReadBatch(1, nullptr, nullptr, buf.data(), &values_read);
+                                 if (values_read <= 0) {
+                                     out_bytes.clear();
+                                     return true;
+                                 }
+
+                                 out_bytes.resize(type_len);
+                                 if (type_len > 0 && buf[0].ptr != nullptr)
+                                     std::memcpy(out_bytes.data(), buf[0].ptr, type_len);
+                                 return true;
+                             }*/
+        default:
+            // unsupported type
+            std::cout << "ParquetFile::ReadValue: Unsupported type" << std::endl;
+            return false;
+        }
+        if (col == this->metadata->num_columns() - 1) {
+            out_bytes.push_back('\n');
+        }
+        else {
+            out_bytes.push_back(sep);
+        }
+
+        return true;
+    }
+    catch (...) {
+        return false;
     }
 
-    return batches;
+    return false;
 }
 
+bool ParquetFile::openColumnReaders(int rg)
+{
+    parquet::ParquetFileReader* pq_reader = this->reader->parquet_reader();
+    if (!pq_reader)
+        return false;
+
+    auto rg_reader = pq_reader->RowGroup(rg);
+    if (!rg_reader)
+        return false;
+
+    for (size_t col = 0; col < this->metadata->num_columns(); col++) {
+        auto col_reader = rg_reader->Column(col);
+        if (!col_reader)
+            return false;
+
+        this->column_readers[col] = col_reader;
+    }
+
+    return true;
+}

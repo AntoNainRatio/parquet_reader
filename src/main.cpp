@@ -150,14 +150,10 @@ int read_whole_file(const std::string path, bool timer) {
         long long code = driver_fread(buf, 1, buffer_size, driver);
 
         if (code != -1) {
-<<<<<<< HEAD
             std::cout << "Read bytes = " << code << std::endl;
             std::cout << "Total = " << curr << std::endl;
-=======
-           //std::cout << "Read bytes = " << code << "\n";
->>>>>>> main
 
-           /* ((char*)buf)[code] = 0;
+            /*((char*)buf)[code] = 0;
             std::cout << "Buffer contains: " << std::endl << (char*)buf << "<-EOF" << std::endl;
 
             std::cout << std::endl;*/
@@ -212,17 +208,14 @@ int compare() {
 int main() {
     //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
     //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/hard.parquet";
-<<<<<<< HEAD
-=======
     //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/test.parquet";
->>>>>>> main
     const std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
 
     int error = 0;
 
     int code;
-    // code = read_whole_file(path, true);
-    code = compare();
+    code = read_whole_file(path, false);
+    //code = compare();
     if (code != 0) {
         error++;
         std::cerr << "Error reading whole file." << std::endl;
