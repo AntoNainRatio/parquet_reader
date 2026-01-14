@@ -33,6 +33,7 @@ void ParquetFile::BuildLogicalIndex() {
 
     const parquet::SchemaDescriptor* schema = metadata->schema();
 
+    // Headers
     for (uint32_t i = 0; i < num_columns; ++i) {
         const parquet::ColumnDescriptor* col = schema->Column(i);
         const auto& path = col->path()->ToDotString();
@@ -41,7 +42,7 @@ void ParquetFile::BuildLogicalIndex() {
         header_idx.col_index = i;
         header_idx.header_logical_start = global_offset;
 
-        global_offset += path.size() + 1;
+        global_offset += path.size() + 1; // nom + séparateur
 
         header_idx.header_logical_end = global_offset - 1;
         headers.push_back(header_idx);
@@ -62,22 +63,22 @@ void ParquetFile::BuildLogicalIndex() {
         auto rg_reader = parquet_reader->RowGroup(rg);
         uint32_t num_rows = rg_reader->metadata()->num_rows();
 
-        // Ouvrir tous les ColumnReader en avance
+        // Col_readers locaux pour ne pas altérer this->column_readers
         std::vector<std::shared_ptr<parquet::ColumnReader>> col_readers(num_columns);
         for (uint32_t col = 0; col < num_columns; col++) {
             col_readers[col] = rg_reader->Column(col);
 
             rg_idx.columns[col].column_id = col;
-            rg_idx.columns[col].column_logical_start = global_offset;  //  KO
+            rg_idx.columns[col].column_logical_start = global_offset;
 
-            // Initialiser une page vide
+            // On crée une seule page par colonne (tu as dit ne pas utiliser les pages, c'est OK)
             PageIndex first_page;
             first_page.page_index = 0;
-            first_page.page_logical_start = global_offset;  //  KO
+            first_page.page_logical_start = global_offset;
             rg_idx.columns[col].pages.push_back(first_page);
         }
 
-        // Lecture en mode row-major
+        // Lecture row-major (une valeur par colonne)
         for (uint32_t row = 0; row < num_rows; row++)
         {
             for (uint32_t col = 0; col < num_columns; col++)
@@ -89,9 +90,6 @@ void ParquetFile::BuildLogicalIndex() {
                 v.row_index = row;
                 v.byte_len = 0;
 
-                std::vector<uint8_t> tmp;
-
-                // ---- Lire UNE SEULE VALEUR par colonne ----
                 int64_t values_read = 0;
 
                 switch (phys)
@@ -101,7 +99,7 @@ void ParquetFile::BuildLogicalIndex() {
                     auto typed = dynamic_cast<parquet::TypedColumnReader<parquet::Int32Type>*>(col_reader.get());
                     typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
                     std::string s = std::to_string(val);
-                    v.byte_len = s.size() + 1;
+                    v.byte_len = static_cast<uint32_t>(s.size()) + 1; // +1 pour séparateur
                     break;
                 }
 
@@ -110,7 +108,7 @@ void ParquetFile::BuildLogicalIndex() {
                     auto typed = dynamic_cast<parquet::TypedColumnReader<parquet::Int64Type>*>(col_reader.get());
                     typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
                     std::string s = std::to_string(val);
-                    v.byte_len = s.size() + 1;
+                    v.byte_len = static_cast<uint32_t>(s.size()) + 1;
                     break;
                 }
 
@@ -119,7 +117,7 @@ void ParquetFile::BuildLogicalIndex() {
                     auto typed = dynamic_cast<parquet::TypedColumnReader<parquet::FloatType>*>(col_reader.get());
                     typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
                     std::string s = std::to_string(val);
-                    v.byte_len = s.size() + 1;
+                    v.byte_len = static_cast<uint32_t>(s.size()) + 1;
                     break;
                 }
 
@@ -128,84 +126,71 @@ void ParquetFile::BuildLogicalIndex() {
                     auto typed = dynamic_cast<parquet::TypedColumnReader<parquet::DoubleType>*>(col_reader.get());
                     typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
                     std::string s = std::to_string(val);
-                    v.byte_len = s.size() + 1;
+                    v.byte_len = static_cast<uint32_t>(s.size()) + 1;
                     break;
                 }
 
                 case parquet::Type::BYTE_ARRAY: {
-                    auto* typed =
-                        dynamic_cast<TypedColumnReader<parquet::ByteArrayType>*>(col_reader.get());
+                    auto* typed = dynamic_cast<TypedColumnReader<parquet::ByteArrayType>*>(col_reader.get());
                     if (!typed) throw std::runtime_error("Couldn't open ByteArray column reader");
 
                     parquet::ByteArray value;
-                    int64_t values_read = 0;
+                    int64_t values_read_local = 0;
+                    typed->ReadBatch(1, nullptr, nullptr, &value, &values_read_local);
 
-                    typed->ReadBatch(1, nullptr, nullptr, &value, &values_read);
-
-                    if (values_read <= 0 || value.ptr == nullptr || value.len == 0) {
-                        v.byte_len = 1; // empty value but still need separator
-                        break;
+                    if (values_read_local <= 0 || value.ptr == nullptr || value.len == 0) {
+                        v.byte_len = 1; // valeur vide mais on garde 1 octet pour le séparateur
                     }
                     else {
                         const uint8_t* ptr = value.ptr;
-                        size_t len = value.len;
+                        size_t len = static_cast<size_t>(value.len);
 
                         bool need_quote = false;
+                        size_t escaped_len = 0;
                         for (size_t i = 0; i < len; ++i) {
                             char c = static_cast<char>(ptr[i]);
                             if (c == '"' || c == '\n' || c == '\r' || c == sep) {
                                 need_quote = true;
-                                break;
+                            }
+                            if (c == '"') {
+                                ++escaped_len; // un octet supplémentaire pour chaque doublement de quote
                             }
                         }
 
                         if (!need_quote) {
-                            v.byte_len = len;
+                            // juste la longueur + séparateur
+                            v.byte_len = static_cast<uint32_t>(len + 1);
                         }
                         else {
-                            v.byte_len++;
-                            for (size_t i = 0; i < len; ++i) {
-                                char c = static_cast<char>(ptr[i]);
-                                if (c == '"') {
-                                    v.byte_len++;
-                                }
-                            }
-                            v.byte_len += len;
-                            v.byte_len++;
+                            // quotes autour (+2) + doublage des quotes internes (+escaped_len) + séparateur
+                            v.byte_len = static_cast<uint32_t>(len + escaped_len + 2 + 1);
                         }
-                        v.byte_len += 1;
                     }
                     break;
                 }
-
-                                              /*case parquet::Type::FIXED_LEN_BYTE_ARRAY: {
-                                                  int32_t type_len = metadata->schema()->Column(col)->type_length();
-                                                  parquet::FixedLenByteArray flba;
-                                                  auto typed = dynamic_cast<parquet::TypedColumnReader<parquet::FixedLenByteArrayType>*>(col_reader.get());
-                                                  typed->ReadBatch(1, nullptr, nullptr, &flba, &values_read);
-                                                  v.byte_len = type_len;
-                                                  tmp.resize(v.byte_len);
-                                                  memcpy(tmp.data(), flba.ptr, type_len);
-                                                  break;
-                                              }*/
 
                 default:
                     throw std::runtime_error("Unsupported type");
                 }
 
-                // Indexation logique
+                // Indexation logique (start .. end inclusive)
                 v.value_logical_start = global_offset;
-                v.value_logical_end = global_offset + v.byte_len;
+                if (v.byte_len == 0) {
+                    v.value_logical_end = global_offset - 1; // zéro longueur (si jamais)
+                }
+                else {
+                    v.value_logical_end = global_offset + v.byte_len - 1; // <-- correction clé
+                }
 
                 global_offset += v.byte_len;
 
-                // Ajouter dans la seule page existante
+                // Ajouter la valeur dans la page existante
                 auto& col_idx = rg_idx.columns[col];
                 col_idx.pages.back().values.push_back(v);
             }
         }
 
-        // Finaliser fin de pages et colonnes
+        // Finaliser pages/colonnes
         for (uint32_t col = 0; col < num_columns; col++)
         {
             auto& c = rg_idx.columns[col];
@@ -216,13 +201,19 @@ void ParquetFile::BuildLogicalIndex() {
         rg_idx.rowgroup_logical_end = global_offset - 1;
         row_groups.push_back(rg_idx);
 
-        for (uint32_t col = 0; col < num_columns; col++) {
-            this->column_readers.push_back(rg_reader->Column(col));
-        }
+        // Ne pas remplir this->column_readers ici (cela créerait une taille > num_columns).
+        // Si tu veux des readers prêts, appelle openColumnReaders(0) après la construction.
+
     }
+
+    // Optionnel : ouvrir les readers pour le premier row_group si nécessaire
+    this->column_readers.clear();
+    this->column_readers.resize(metadata->num_columns());
+    openColumnReaders(0);
 
     logical_size = global_offset;
 }
+
 
 
 

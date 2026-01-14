@@ -141,7 +141,7 @@ int read_whole_file(const std::string path, bool timer) {
     }
 
     size_t curr = 0;
-    while (curr < file_logical_size) {
+    while (curr < file_logical_size && curr < 30 * 10000) {
         if (!buf) {
             std::cerr << "Error calloc\n";
             return 1;
@@ -209,13 +209,15 @@ int main() {
     //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
     //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/hard.parquet";
     //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/test.parquet";
+    //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/acci.parquet";
     //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/Places_cut.parquet";
-    const std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
+    //const std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
+    const std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet";
 
     int error = 0;
 
     int code;
-    code = read_whole_file(path, false);
+    code = read_whole_file(path, true);
     //code = compare();
     if (code != 0) {
         error++;
