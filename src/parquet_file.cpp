@@ -368,12 +368,11 @@ bool ParquetFile::readValue(int rg, int col, int page, int value, std::vector<ui
 
             bool val;
             int64_t read = typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
-            if (values_read <= 0) { // NULL or nothing
-                return true;
+            if (read != 1 || values_read <= 0) {
+                return false;
             }
             std::string s = std::to_string(val);
-            out_bytes.resize(s.size());
-            std::memcpy(out_bytes.data(), s.data(), s.size());
+            out_bytes.assign(s.begin(), s.end());
             break;
         }
         case Type::INT32: {
@@ -382,12 +381,11 @@ bool ParquetFile::readValue(int rg, int col, int page, int value, std::vector<ui
 
             int32_t val;
             int64_t read = typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
-            if (values_read <= 0) { // NULL or nothing
-                return true;
+            if (read != 1 || values_read <= 0) {
+                return false;
             }
             std::string s = std::to_string(val);
-            out_bytes.resize(s.size());
-            std::memcpy(out_bytes.data(), s.data(), s.size());
+            out_bytes.assign(s.begin(), s.end());
             break;
         }
         case Type::INT64: {
@@ -396,12 +394,11 @@ bool ParquetFile::readValue(int rg, int col, int page, int value, std::vector<ui
 
             int64_t val;
             int64_t read = typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
-            if (values_read <= 0) {
-                return true;
+            if (read != 1 || values_read <= 0) {
+                return false;
             }
             std::string s = std::to_string(val);
-            out_bytes.resize(s.size());
-            std::memcpy(out_bytes.data(), s.data(), s.size());
+            out_bytes.assign(s.begin(), s.end());
             break;
         }
                         /*case Type::INT96: {
@@ -426,12 +423,11 @@ bool ParquetFile::readValue(int rg, int col, int page, int value, std::vector<ui
 
             float val;
             int64_t read = typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
-            if (values_read <= 0) {
-                return true;
+            if (read != 1 || values_read <= 0) {
+                return false;
             }
             std::string s = std::to_string(val);
-            out_bytes.resize(s.size());
-            std::memcpy(out_bytes.data(), s.data(), s.size());
+            out_bytes.assign(s.begin(), s.end());
             break;
         }
         case Type::DOUBLE: {
@@ -440,84 +436,81 @@ bool ParquetFile::readValue(int rg, int col, int page, int value, std::vector<ui
 
             double val;
             int64_t read = typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
-            if (values_read <= 0) {
-                return true;
+            if (read != 1 || values_read <= 0) {
+                return false;
             }
             std::string s = std::to_string(val);
-            out_bytes.resize(s.size());
-            std::memcpy(out_bytes.data(), s.data(), s.size());
+            out_bytes.assign(s.begin(), s.end());
             break;
         }
         case Type::BYTE_ARRAY: {
-            auto* typed =
-                dynamic_cast<TypedColumnReader<parquet::ByteArrayType>*>(col_reader.get());
+            auto* typed = dynamic_cast<TypedColumnReader<parquet::ByteArrayType>*>(col_reader.get());
             if (!typed) return false;
 
             parquet::ByteArray value;
             int64_t values_read = 0;
 
-            typed->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+            int64_t read = typed->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+            if (read != 1 || values_read <= 0) {
+                return false;
+            }
 
-            if (values_read <= 0 || value.ptr == nullptr || value.len == 0) {
-                break;
+            const uint8_t* ptr = value.ptr;
+            size_t len = value.len;
+
+            // Vérifier si on doit entourer de guillemets
+            bool need_quote = false;
+            for (size_t i = 0; i < len; ++i) {
+                char c = static_cast<char>(ptr[i]);
+                if (c == '"' || c == '\n' || c == '\r' || c == sep) {
+                    need_quote = true;
+                    break;
+                }
+            }
+
+            // Sauvegarder la taille avant insertion
+            size_t old_size = out_bytes.size();
+
+            if (!need_quote) {
+                // Pas besoin de guillemets, on insère directement
+                out_bytes.insert(out_bytes.end(), ptr, ptr + len);
             }
             else {
-                const uint8_t* ptr = value.ptr;
-                size_t len = value.len;
-
-                bool need_quote = false;
+                // Besoin de guillemets et d'échappement des guillemets internes
+                out_bytes.push_back('"');
                 for (size_t i = 0; i < len; ++i) {
                     char c = static_cast<char>(ptr[i]);
-                    if (c == '"' || c == '\n' || c == '\r' || c == sep) {
-                        need_quote = true;
-                        break;
+                    if (c == '"') {
+                        // Double guillemet pour échapper
+                        out_bytes.push_back('"');
                     }
+                    out_bytes.push_back(c);
                 }
-
-                if (need_quote) {
-                    out_bytes.reserve(out_bytes.size() + len * 2 + 2);
-                }
-                else {
-                    out_bytes.reserve(out_bytes.size() + len);
-                }
-
-                if (!need_quote) {
-                    out_bytes.insert(out_bytes.end(), ptr, ptr + len);
-                }
-                else {
-                    out_bytes.push_back('"');
-                    for (size_t i = 0; i < len; ++i) {
-                        char c = static_cast<char>(ptr[i]);
-                        if (c == '"') {
-                            out_bytes.push_back('"');
-                        }
-                        out_bytes.push_back(c);
-                    }
-                    out_bytes.push_back('"');
-                }
+                out_bytes.push_back('"');
             }
 
             break;
         }
 
-                             /*case Type::FIXED_LEN_BYTE_ARRAY: {
-                                 auto* typed = dynamic_cast<TypedColumnReader<parquet::ByteArrayType>*>(col_reader.get());
-                                 if (!typed) return false;
 
-                                 int32_t type_len = this->metadata->schema()->Column(col)->type_length();
+            /*case Type::FIXED_LEN_BYTE_ARRAY: {
+                auto* typed = dynamic_cast<TypedColumnReader<parquet::ByteArrayType>*>(col_reader.get());
+                if (!typed) return false;
 
-                                 std::vector<parquet::FixedLenByteArray> buf(1);
-                                 int64_t read = typed->ReadBatch(1, nullptr, nullptr, buf.data(), &values_read);
-                                 if (values_read <= 0) {
-                                     out_bytes.clear();
-                                     return true;
-                                 }
+                int32_t type_len = this->metadata->schema()->Column(col)->type_length();
 
-                                 out_bytes.resize(type_len);
-                                 if (type_len > 0 && buf[0].ptr != nullptr)
-                                     std::memcpy(out_bytes.data(), buf[0].ptr, type_len);
-                                 return true;
-                             }*/
+                std::vector<parquet::FixedLenByteArray> buf(1);
+                int64_t read = typed->ReadBatch(1, nullptr, nullptr, buf.data(), &values_read);
+                if (values_read <= 0) {
+                    out_bytes.clear();
+                    return true;
+                }
+
+                out_bytes.resize(type_len);
+                if (type_len > 0 && buf[0].ptr != nullptr)
+                    std::memcpy(out_bytes.data(), buf[0].ptr, type_len);
+                return true;
+            }*/
         default:
             // unsupported type
             std::cout << "ParquetFile::ReadValue: Unsupported type" << std::endl;

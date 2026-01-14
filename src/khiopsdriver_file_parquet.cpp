@@ -359,7 +359,10 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 		auto value_logical_start = parquetFile->row_groups[rg].columns[col].pages[page].values[val].value_logical_start;
 		int64_t offset_in_value = parquetFile->pos - value_logical_start;
 
-		parquetFile->readValue(rg, col, page, val, valueBytes);
+		if (!parquetFile->readValue(rg, col, page, val, valueBytes)) {
+			LogError("Unable to read next value.");
+			return -1;
+		}
 		size_t valueSize = valueBytes.size();
 
 		int64_t to_read_from_value = valueSize - offset_in_value;

@@ -25,6 +25,12 @@ set_target_properties(khiopsdriver_file_parquet PROPERTIES
     VERSION ${PROJECT_VERSION}
 )
 
+if(MSVC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 19.28)
+    add_compile_options(/fsanitize=address)
+    add_link_options(/fsanitize=address)
+endif()
+
+
 if(WIN32)
   set_target_properties(khiopsdriver_file_parquet PROPERTIES
     WINDOWS_EXPORT_ALL_SYMBOLS ON
