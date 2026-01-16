@@ -42,7 +42,7 @@ void ParquetFile::BuildLogicalIndex() {
         header_idx.col_index = i;
         header_idx.header_logical_start = global_offset;
 
-        global_offset += path.size() + 1; // nom + séparateur
+        global_offset += path.size() + 1; // nom + (séparateur ou newline)
 
         header_idx.header_logical_end = global_offset - 1;
         headers.push_back(header_idx);
@@ -71,7 +71,7 @@ void ParquetFile::BuildLogicalIndex() {
             rg_idx.columns[col].column_id = col;
             rg_idx.columns[col].column_logical_start = global_offset;
 
-            // On crée une seule page par colonne (tu as dit ne pas utiliser les pages, c'est OK)
+            // Une seule page car colonne reader indique pas quand on change de page --> a creuser
             PageIndex first_page;
             first_page.page_index = 0;
             first_page.page_logical_start = global_offset;
@@ -99,7 +99,7 @@ void ParquetFile::BuildLogicalIndex() {
                     auto typed = dynamic_cast<parquet::TypedColumnReader<parquet::Int32Type>*>(col_reader.get());
                     typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
                     std::string s = std::to_string(val);
-                    v.byte_len = static_cast<uint32_t>(s.size()) + 1; // +1 pour séparateur
+                    v.byte_len = static_cast<uint32_t>(s.size()) + 1; // +1 pour séparateur ou newline
                     break;
                 }
 
@@ -158,7 +158,6 @@ void ParquetFile::BuildLogicalIndex() {
                         }
 
                         if (!need_quote) {
-                            // juste la longueur + séparateur
                             v.byte_len = static_cast<uint32_t>(len + 1);
                         }
                         else {
@@ -176,10 +175,10 @@ void ParquetFile::BuildLogicalIndex() {
                 // Indexation logique (start .. end inclusive)
                 v.value_logical_start = global_offset;
                 if (v.byte_len == 0) {
-                    v.value_logical_end = global_offset - 1; // zéro longueur (si jamais)
+                    v.value_logical_end = global_offset - 1; // ne devrait pas arriver
                 }
                 else {
-                    v.value_logical_end = global_offset + v.byte_len - 1; // <-- correction clé
+                    v.value_logical_end = global_offset + v.byte_len - 1;
                 }
 
                 global_offset += v.byte_len;
@@ -190,7 +189,7 @@ void ParquetFile::BuildLogicalIndex() {
             }
         }
 
-        // Finaliser pages/colonnes
+        // Finaliser colonnes
         for (uint32_t col = 0; col < num_columns; col++)
         {
             auto& c = rg_idx.columns[col];
@@ -200,13 +199,8 @@ void ParquetFile::BuildLogicalIndex() {
 
         rg_idx.rowgroup_logical_end = global_offset - 1;
         row_groups.push_back(rg_idx);
-
-        // Ne pas remplir this->column_readers ici (cela créerait une taille > num_columns).
-        // Si tu veux des readers prêts, appelle openColumnReaders(0) après la construction.
-
     }
 
-    // Optionnel : ouvrir les readers pour le premier row_group si nécessaire
     this->column_readers.clear();
     this->column_readers.resize(metadata->num_columns());
     openColumnReaders(0);

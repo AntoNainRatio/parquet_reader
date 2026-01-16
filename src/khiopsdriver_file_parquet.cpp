@@ -224,7 +224,7 @@ long long int driver_getFileSize(const char* filename)
 		return -1;
 	}
 
-	// std::cout << "driver_getFileSize called: filename=" << filename << std::endl;
+	std::cout << "driver_getFileSize called: filename=" << filename << std::endl;
 
 	valid_path[0] = file_path[0];
 	valid_path[1] = ':';
@@ -251,7 +251,7 @@ void* driver_fopen(const char* filename, char mode)
 		LogError("driver_fopen: Invalid mode or NULL filename.");
 		return nullptr;
 	}
-	// std::cout << "driver_fopen called: filename=" << filename << ", mode=" << mode << std::endl;
+	std::cout << "driver_fopen called: filename=" << filename << ", mode=" << mode << std::endl;
 
 	// Temporary solution because Khiops accept only one ':' 
 	// so impossible because this driver need the scheme (parquet://...)
@@ -287,7 +287,7 @@ void* driver_fopen(const char* filename, char mode)
 
 int driver_fclose(void* stream)
 {
-	// std::cout << "driver_fclose called." << std::endl;
+	std::cout << "driver_fclose called." << std::endl;
 	if (!stream) {
 		LogError("driver_fclose: NULL ParquetFile pointer.");
 		return EOF;
@@ -319,6 +319,8 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 		LogError("driver_fread: ParquetFile is not open.");
 		return -1;
 	}
+
+	std::cout << "driver_fread call: requesting " << size << " * " << count << " bytes." << std::endl;
 
 	uint8_t* out = static_cast<uint8_t*>(ptr);
 
@@ -506,7 +508,7 @@ int driver_fseek(void* stream, long long int offset, int whence)
 		LogError("driver_fseek: NULL ParquetFile pointer.");
 		return -1;
 	}
-	// std::cout << "driver_fseek called: offset=" << offset << ", whence=" << whence << std::endl;
+	std::cout << "driver_fseek called: offset=" << offset << ", whence=" << whence << std::endl;
 
 	ParquetFile* parquetFile = static_cast<ParquetFile*>(stream);
 	if (!parquetFile->isOpen()) {

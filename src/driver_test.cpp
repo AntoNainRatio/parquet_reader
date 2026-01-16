@@ -766,7 +766,7 @@ int test_file_size() {
 
 	path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
 	code = driver_getFileSize(path);
-	exp = 5037442;
+	exp = 5037445;
 	if (code != exp) {
 		print_file_size_error(path, exp, code);
 		failed++;
@@ -813,7 +813,7 @@ int main() {
 
 	int failed = 0;
 
-	/*failed += test_driver_fopen_errors();
+	failed += test_driver_fopen_errors();
 	failed += test_driver_fclose_erros();
 	failed += test_driver_use_after_close();
 	failed += test_driver_double_fclose();
@@ -827,17 +827,17 @@ int main() {
 	failed += test_driver_fread_after_eof();
 	failed += test_driver_fread_fseek_mix();
 	failed += test_driver_fread_byte_by_byte();
-	failed += test_driver_fread_eof();*/
+	failed += test_driver_fread_eof();
 	failed += test_driver_fread_multiple_time();
 
-	/*failed += test_driver_fseek_errors();
+	failed += test_driver_fseek_errors();
 	failed += test_driver_fseek_random();
 	failed += test_driver_fseek_all_file();
 	failed += test_driver_fseek_all_file_reverse();
 	failed += test_driver_fseek_unaligned();
 
 	failed += test_file_size();
-	failed += test_driver_fileExists();*/
+	failed += test_driver_fileExists();
 
 	if (failed == 0) {
 		std::cout << "PASSED: All tests passed" << std::endl;

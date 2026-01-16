@@ -133,7 +133,7 @@ int read_whole_file(const std::string path, bool timer) {
     auto pd = (ParquetFile*)driver;
     //pd->dumpInfo();
 
-    size_t buffer_size = 10000;
+    size_t buffer_size = 1048576;
     void* buf = calloc(1, buffer_size + 1);
     if (!buf) {
         std::cerr << "Error calloc\n";
@@ -141,7 +141,7 @@ int read_whole_file(const std::string path, bool timer) {
     }
 
     size_t curr = 0;
-    while (curr < file_logical_size && curr < 30 * 10000) {
+    while (curr < file_logical_size) {
         if (!buf) {
             std::cerr << "Error calloc\n";
             return 1;
@@ -178,7 +178,7 @@ int read_whole_file(const std::string path, bool timer) {
         std::cout << "Parquet reading succeed in " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << "millisecs" << std::endl;
 
     }
-
+    std::cout << "Total = " << curr << std::endl;
     return 0;
 }
 
@@ -205,6 +205,72 @@ int compare() {
     return 0;
 }
 
+int read_as_khiops(const std::string path, const bool timer) {
+    size_t file_logical_size = driver_getFileSize(path.c_str());
+    std::cout << "File logical size: " << file_logical_size << std::endl;
+
+    auto t1 = std::chrono::high_resolution_clock::now();
+
+    void* driver = driver_fopen(path.c_str(), 'r');
+    if (!driver) {
+        std::cerr << "Error: driver_fopen failed" << std::endl;
+        return 1;
+    }
+    auto pd = (ParquetFile*)driver;
+    //pd->dumpInfo();
+
+    size_t buffer_size = 1048576;
+    void* buf = calloc(1, buffer_size + 1);
+    if (!buf) {
+        std::cerr << "Error calloc\n";
+        return 1;
+    }
+
+    std::vector<long long> positions = { 104856, 0, 4194304, 2097152, 3145728, 5242880, 6291456, 7340032 };
+
+    for (size_t i = 0; i < positions.size(); i++){
+
+        long long code = driver_fseek(driver, positions[i], 0);
+
+        if (code == -1) {
+            std::cerr << "driver_fseek returned -1 on seeking to " << positions[i] << std::endl;
+            free(buf);
+            return 1;
+        }
+
+
+        code = driver_fread(buf, 1, buffer_size, driver);
+
+        if (code != -1) {
+            std::cout << "Read bytes = " << code << std::endl;
+
+            /*((char*)buf)[code] = 0;
+            std::cout << "Buffer contains: " << std::endl << (char*)buf << "<-EOF" << std::endl;
+
+            std::cout << std::endl;*/
+
+        }
+        else {
+            std::cerr << "driver_fread returned -1\n";
+            free(buf);
+            return 1;
+        }
+    }
+
+    free(buf);
+
+    if (driver_fclose(driver) != 0) {
+        std::cerr << "Error closing driver\n";
+    }
+
+    auto t2 = std::chrono::high_resolution_clock::now();
+    if (timer) {
+        std::cout << "Parquet reading succeed in " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << "millisecs" << std::endl;
+
+    }
+    return 0;
+}
+
 int main() {
     //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
     //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/hard.parquet";
@@ -217,7 +283,8 @@ int main() {
     int error = 0;
 
     int code;
-    code = read_whole_file(path, true);
+    //code = read_whole_file(path, true);
+    code = read_as_khiops(path, true);
     //code = compare();
     if (code != 0) {
         error++;
