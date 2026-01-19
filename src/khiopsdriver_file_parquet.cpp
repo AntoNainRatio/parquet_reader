@@ -224,7 +224,7 @@ long long int driver_getFileSize(const char* filename)
 		return -1;
 	}
 
-	std::cout << "driver_getFileSize called: filename=" << filename << std::endl;
+	// std::cout << "driver_getFileSize called: filename=" << filename << std::endl;
 
 	valid_path[0] = file_path[0];
 	valid_path[1] = ':';
@@ -251,7 +251,7 @@ void* driver_fopen(const char* filename, char mode)
 		LogError("driver_fopen: Invalid mode or NULL filename.");
 		return nullptr;
 	}
-	std::cout << "driver_fopen called: filename=" << filename << ", mode=" << mode << std::endl;
+	// std::cout << "driver_fopen called: filename=" << filename << ", mode=" << mode << std::endl;
 
 	// Temporary solution because Khiops accept only one ':' 
 	// so impossible because this driver need the scheme (parquet://...)
@@ -287,7 +287,7 @@ void* driver_fopen(const char* filename, char mode)
 
 int driver_fclose(void* stream)
 {
-	std::cout << "driver_fclose called." << std::endl;
+	// std::cout << "driver_fclose called." << std::endl;
 	if (!stream) {
 		LogError("driver_fclose: NULL ParquetFile pointer.");
 		return EOF;
@@ -320,7 +320,7 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 		return -1;
 	}
 
-	std::cout << "driver_fread call: requesting " << size << " * " << count << " bytes." << std::endl;
+	// std::cout << "driver_fread call: requesting " << size << " * " << count << " bytes." << std::endl;
 
 	uint8_t* out = static_cast<uint8_t*>(ptr);
 
@@ -336,9 +336,9 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 	else if (header != static_cast<size_t>(-1)) {
 		while (readcount < totalBytesToRead && header < parquetFile->headers.size()) {
 			auto value_logical_start = parquetFile->headers[header].header_logical_start;
-			// utiliser types signés pour la différence
+			
 			int64_t offset_in_value = static_cast<int64_t>(parquetFile->pos) - static_cast<int64_t>(value_logical_start);
-			if (offset_in_value < 0) offset_in_value = 0; // protection
+			if (offset_in_value < 0) offset_in_value = 0; // protection: should not happened (exception probably better)
 
 			std::string value;
 			if (!parquetFile->readHeader(header, value)) return -1;
@@ -346,7 +346,7 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 			size_t valueSize = value.size();
 
 			if (static_cast<size_t>(offset_in_value) >= valueSize) {
-				// rien à lire dans cette valeur : avancer header / pos ?
+				// should not happened (exception probably better)
 				header++;
 				continue;
 			}
@@ -374,7 +374,7 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 		auto value_logical_start = valueIndex.value_logical_start;
 
 		int64_t offset_in_value = static_cast<int64_t>(parquetFile->pos) - static_cast<int64_t>(value_logical_start);
-		if (offset_in_value < 0) offset_in_value = 0; // protection: ne pas pointer avant le buffer
+		if (offset_in_value < 0) offset_in_value = 0; // protection: should not happened (exception probably better)
 
 		if (!parquetFile->readValue(static_cast<int>(rg), static_cast<int>(col), static_cast<int>(page), static_cast<int>(val), valueBytes)) {
 			LogError("Unable to read next value.");
@@ -382,14 +382,8 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 		}
 		size_t valueSize = valueBytes.size();
 
-		// si offset dépasse la taille, rien à lire ici
+		// should not happened
 		if (static_cast<size_t>(offset_in_value) >= valueSize) {
-			// avancer la position logique au début de la valeur suivante
-			// (ici on choisit d'incrémenter comme si on avait consommé le reste)
-			// ou on peut retourner 0 / -1 selon la logique applicative
-			// avancer indices comme dans le code original :
-			// on simule qu'on a consommé le reste (0 bytes) et on passe à la suite
-			// avancer indices :
 			const RowGroupIndex& rg_idx = parquetFile->row_groups[rg];
 			const ColumnIndex& col_idx = rg_idx.columns[col];
 			const PageIndex& page_idx = col_idx.pages[page];
@@ -407,7 +401,7 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 				page = 0;
 				rg++;
 				if (rg >= parquetFile->row_groups.size()) {
-					break; // fin de fichier
+					break; // eof
 				}
 				parquetFile->column_readers.clear();
 				parquetFile->column_readers.resize(parquetFile->metadata->num_columns());
@@ -508,120 +502,99 @@ int driver_fseek(void* stream, long long int offset, int whence)
 		LogError("driver_fseek: NULL ParquetFile pointer.");
 		return -1;
 	}
-	std::cout << "driver_fseek called: offset=" << offset << ", whence=" << whence << std::endl;
+	// std::cout << "driver_fseek called: offset=" << offset << ", whence=" << whence << std::endl;
 
 	ParquetFile* parquetFile = static_cast<ParquetFile*>(stream);
 	if (!parquetFile->isOpen()) {
-		LogError("driver_fread: ParquetFile is not open.");
+		LogError("driver_fseek: ParquetFile is not open.");
 		return -1;
 	}
-	if (parquetFile == NULL) return -1; // possiblement inutile
 
-	uint64_t newPos = -1;
+
+	int64_t logical_size_signed = static_cast<int64_t>(parquetFile->logical_size);
+	int64_t candidate = -1;
 	if (whence == std::ios::beg) {
-		if (offset >= 0 && offset <= (long long int)parquetFile->logical_size) {
-			newPos = offset;
-		}
+		candidate = offset;
 	}
 	else if (whence == std::ios::cur) {
-		if (parquetFile->pos + offset >= 0 && parquetFile->pos + offset <= (long long int)parquetFile->logical_size) {
-			newPos = parquetFile->pos + offset;
-		}
+		candidate = static_cast<int64_t>(parquetFile->pos) + offset;
 	}
 	else if (whence == std::ios::end) {
-		if (parquetFile->logical_size + offset >= 0 && parquetFile->logical_size + offset <= (long long int)parquetFile->logical_size) {
-			newPos = parquetFile->logical_size + offset;
-		}
+		candidate = static_cast<int64_t>(parquetFile->logical_size) + offset;
 	}
 	else {
-		LogError("diver_fseek: Invalid whence.");
+		LogError("driver_fseek: Invalid whence.");
 		return -1;
 	}
 
-	if (newPos == (uint64_t)-1) {
+	if (candidate < 0 || candidate > logical_size_signed) {
 		LogError("driver_fseek: Invalid offset value (out of bounds).");
 		return -1;
 	}
 
-	if (newPos < parquetFile->pos) {
-		parquetFile->pos = newPos;
+	uint64_t newPos = static_cast<uint64_t>(candidate);
 
-		size_t rg = 0, col = 0, page = 0, val = 0;
-		size_t header = -1;
-		if (!parquetFile->findValueAtLogicalPosition(rg, col, page, val, header)) {
-			LogError("driver_fseek: Unable to find value position after pointer going back.");
+	/*size_t rg_old = 0, col_old = 0, page_old = 0, val_old = 0, header_old = static_cast<size_t>(-1);
+	if (!parquetFile->findValueAtLogicalPosition(rg_old, col_old, page_old, val_old, header_old)) {
+		LogError("driver_fseek: Unable to find old value position.");
+		return -1;
+	}*/
+
+	parquetFile->pos = newPos;
+
+	size_t rg = 0, col = 0, page = 0, val = 0, header = static_cast<size_t>(-1);
+	if (!parquetFile->findValueAtLogicalPosition(rg, col, page, val, header)) {
+		LogError("driver_fseek: Unable to find new value position.");
+		return -1;
+	}
+
+	// closing and reopenning columnReaders everytime
+	// maybe don't close if (in same row group and newPos > pos)
+	parquetFile->column_readers.clear();
+	parquetFile->column_readers.resize(parquetFile->metadata->num_columns());
+	if (!parquetFile->openColumnReaders(static_cast<int>(rg))) {
+		LogError("driver_fseek: Unable to open ColumnReaders for target row group.");
+		return -1;
+	}
+
+	uint32_t target_row = parquetFile->row_groups[rg].columns[col].pages[page].values[val].row_index;
+
+	for (size_t c = 0; c < parquetFile->column_readers.size(); ++c) {
+		auto& reader = parquetFile->column_readers[c];
+		if (!reader) {
+			LogError("driver_fseek: Null column reader after opening.");
 			return -1;
 		}
 
-		parquetFile->column_readers.clear();
-		parquetFile->column_readers.resize(parquetFile->metadata->num_columns());
+		auto phys = parquetFile->metadata->schema()->Column(static_cast<int>(c))->physical_type();
+		uint64_t to_skip = target_row; // skip target_row rows to reach row index 'target_row'
+		int to_add = c < col ? 1 : 0;  // +1 for all values already read
 
-		if (!parquetFile->openColumnReaders(static_cast<int>(rg))) {
-			LogError("driver_fseek: Unable to open new ColumnReaders.");
-			return -1;
-		}
-
-		std::vector<uint64_t> rows_to_skip(parquetFile->metadata->num_columns(), 0);
-
-		// get target row to skip
-		uint32_t target_row = parquetFile
-			->row_groups[rg]
-			.columns[col]
-			.pages[page]
-			.values[val]
-			.row_index;
-
-		for (size_t index_col = col; index_col < col + parquetFile->metadata->num_columns(); index_col++) {
-			size_t index = index_col % parquetFile->metadata->num_columns();
-			rows_to_skip[index] = target_row;
-			if (index_col == parquetFile->metadata->num_columns() - 1) {
-				target_row++;
-			}
-		}
-
-		// skip on every column reader
-		for (size_t c = 0; c < parquetFile->column_readers.size(); ++c) {
-			auto& reader = parquetFile->column_readers[c];
-			if (!reader)
-				return -1;
-
-			auto phys = parquetFile->metadata->schema()->Column(c)->physical_type();
-
-			if (target_row == 0)
-				continue;
-
-			switch (phys) {
+		switch (phys) {
 			case parquet::Type::BOOLEAN:
-				dynamic_cast<TypedColumnReader<parquet::BooleanType>*>(reader.get())
-					->Skip(rows_to_skip[c]);
+				dynamic_cast<TypedColumnReader<parquet::BooleanType>*>(reader.get())->Skip(to_skip + to_add);
 				break;
 			case parquet::Type::INT32:
-				dynamic_cast<TypedColumnReader<parquet::Int32Type>*>(reader.get())
-					->Skip(rows_to_skip[c]);
+				dynamic_cast<TypedColumnReader<parquet::Int32Type>*>(reader.get())->Skip(to_skip + to_add);
 				break;
 			case parquet::Type::INT64:
-				dynamic_cast<TypedColumnReader<parquet::Int64Type>*>(reader.get())
-					->Skip(rows_to_skip[c]);
+				dynamic_cast<TypedColumnReader<parquet::Int64Type>*>(reader.get())->Skip(to_skip + to_add);
 				break;
 			case parquet::Type::FLOAT:
-				dynamic_cast<TypedColumnReader<parquet::FloatType>*>(reader.get())
-					->Skip(rows_to_skip[c]);
+				dynamic_cast<TypedColumnReader<parquet::FloatType>*>(reader.get())->Skip(to_skip + to_add);
 				break;
 			case parquet::Type::DOUBLE:
-				dynamic_cast<TypedColumnReader<parquet::DoubleType>*>(reader.get())
-					->Skip(rows_to_skip[c]);
+				dynamic_cast<TypedColumnReader<parquet::DoubleType>*>(reader.get())->Skip(to_skip + to_add);
 				break;
 			case parquet::Type::BYTE_ARRAY:
-				dynamic_cast<TypedColumnReader<parquet::ByteArrayType>*>(reader.get())
-					->Skip(rows_to_skip[c]);
+				dynamic_cast<TypedColumnReader<parquet::ByteArrayType>*>(reader.get())->Skip(to_skip + to_add);
 				break;
 			default:
+				LogError("driver_fseek: Unsupported physical type in Skip.");
 				return -1;
-			}
 		}
-		return 0;
 	}
-	parquetFile->pos = newPos;
+
 	return 0;
 }
 
