@@ -19,6 +19,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <chrono>
 
 #ifdef _MSC_VER
 #include <direct.h>
@@ -207,6 +208,8 @@ int driver_dirExists(const char* filename)
 
 long long int driver_getFileSize(const char* filename)
 {
+	auto t1 = std::chrono::high_resolution_clock::now();
+
 	if (filename == nullptr) {
 		return -1;
 	}
@@ -235,6 +238,11 @@ long long int driver_getFileSize(const char* filename)
 	// end of temporary solution
 	try {
 		ParquetFile parquetFile = ParquetFile(valid_path);
+
+		auto t2 = std::chrono::high_resolution_clock::now();
+		auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+
+		std::cout << "driver_getFileSize: " << ms << std::endl;
 		return parquetFile.logical_size;
 	}
 	catch (const std::exception& e) {
@@ -245,6 +253,8 @@ long long int driver_getFileSize(const char* filename)
 
 void* driver_fopen(const char* filename, char mode)
 {
+	auto t1 = std::chrono::high_resolution_clock::now();
+
 	void* handle;
 
 	if (mode != 'r' || filename == nullptr) {
@@ -282,11 +292,18 @@ void* driver_fopen(const char* filename, char mode)
 		return nullptr;
 	}
 
+	auto t2 = std::chrono::high_resolution_clock::now();
+	auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+
+	std::cout << "driver_fopen: " << ms << std::endl;
+
 	return handle;
 }
 
 int driver_fclose(void* stream)
 {
+	auto t1 = std::chrono::high_resolution_clock::now();
+
 	// std::cout << "driver_fclose called." << std::endl;
 	if (!stream) {
 		LogError("driver_fclose: NULL ParquetFile pointer.");
@@ -302,12 +319,20 @@ int driver_fclose(void* stream)
 
 	pf->close();
 	delete pf;
+
+	auto t2 = std::chrono::high_resolution_clock::now();
+	auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+
+	std::cout << "driver_fclose: " << ms << std::endl;
+
 	return 0;
 }
 
 
 long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 {
+	auto t1 = std::chrono::high_resolution_clock::now();
+
 	if (!ptr || !stream) {
 		LogError("driver_fread: NULL pointer argument.");
 		return -1;
@@ -492,12 +517,19 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 		}
 	}
 
+	auto t2 = std::chrono::high_resolution_clock::now();
+	auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+
+	std::cout << "driver_fread: " << ms << std::endl;
+
 	return static_cast<long long int>(readcount);
 }
 
 
 int driver_fseek(void* stream, long long int offset, int whence)
 {
+	auto t1 = std::chrono::high_resolution_clock::now();
+
 	if (stream == nullptr) {
 		LogError("driver_fseek: NULL ParquetFile pointer.");
 		return -1;
@@ -594,6 +626,11 @@ int driver_fseek(void* stream, long long int offset, int whence)
 				return -1;
 		}
 	}
+
+	auto t2 = std::chrono::high_resolution_clock::now();
+	auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+
+	std::cout << "driver_fseek: " << ms << std::endl;
 
 	return 0;
 }
