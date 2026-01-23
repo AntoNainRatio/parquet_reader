@@ -239,10 +239,11 @@ long long int driver_getFileSize(const char* filename)
 	try {
 		ParquetFile parquetFile = ParquetFile(valid_path);
 
-		auto t2 = std::chrono::high_resolution_clock::now();
-		auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+		// Timer
+		// auto t2 = std::chrono::high_resolution_clock::now();
+		// auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+		// std::cout << "driver_getFileSize: " << ms << std::endl;
 
-		std::cout << "driver_getFileSize: " << ms << std::endl;
 		return parquetFile.logical_size;
 	}
 	catch (const std::exception& e) {
@@ -292,10 +293,11 @@ void* driver_fopen(const char* filename, char mode)
 		return nullptr;
 	}
 
-	auto t2 = std::chrono::high_resolution_clock::now();
-	auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+	// Timer
+	// auto t2 = std::chrono::high_resolution_clock::now();
+	// auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
-	std::cout << "driver_fopen: " << ms << std::endl;
+	//std::cout << "driver_fopen: " << ms << std::endl;
 
 	return handle;
 }
@@ -320,10 +322,11 @@ int driver_fclose(void* stream)
 	pf->close();
 	delete pf;
 
-	auto t2 = std::chrono::high_resolution_clock::now();
-	auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+	// Timer
+	// auto t2 = std::chrono::high_resolution_clock::now();
+	// auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
-	std::cout << "driver_fclose: " << ms << std::endl;
+	// std::cout << "driver_fclose: " << ms << std::endl;
 
 	return 0;
 }
@@ -517,10 +520,11 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 		}
 	}
 
-	auto t2 = std::chrono::high_resolution_clock::now();
-	auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+	// Timer
+	// auto t2 = std::chrono::high_resolution_clock::now();
+	// auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
-	std::cout << "driver_fread: " << ms << std::endl;
+	// std::cout << "driver_fread: " << ms << std::endl;
 
 	return static_cast<long long int>(readcount);
 }
@@ -627,10 +631,11 @@ int driver_fseek(void* stream, long long int offset, int whence)
 		}
 	}
 
-	auto t2 = std::chrono::high_resolution_clock::now();
-	auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+	// Timer
+	// auto t2 = std::chrono::high_resolution_clock::now();
+	// auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
-	std::cout << "driver_fseek: " << ms << std::endl;
+	// std::cout << "driver_fseek: " << ms << std::endl;
 
 	return 0;
 }

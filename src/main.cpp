@@ -151,12 +151,12 @@ int read_whole_file(const std::string path, bool timer) {
 
         if (code != -1) {
             std::cout << "Read bytes = " << code << std::endl;
-            std::cout << "Total = " << curr << std::endl;
+            /*std::cout << "Total = " << curr << std::endl;
 
             ((char*)buf)[code] = 0;
             std::cout << "Buffer contains: " << std::endl << (char*)buf << "<-EOF" << std::endl;
 
-            std::cout << std::endl;
+            std::cout << std::endl;*/
 
             curr += code;
         }
@@ -373,8 +373,8 @@ int main() {
     int error = 0;
 
     int code;
-    //code = read_whole_file(path, true);
-    code = read_as_khiops(path, true);
+    code = read_whole_file(path, true);
+    //code = read_as_khiops(path, true);
     //code = read_after_fseek(path, true);
     //code = compare();
     if (code != 0) {
