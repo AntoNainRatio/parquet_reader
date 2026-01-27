@@ -296,7 +296,7 @@ int test_driver_fread_whole_file_in_one_read() {
 		return 1;
 	}
 
-	const char* exp = "id,country,city\n1,USA,New York\n2,Canada,Toronto\n3,UK,London\n4,Australia,Sydney\n5,Germany,Berlin\n6,France,Paris\n7,Japan,Tokyo\n8,Spain,Madrid\n";
+	const char* exp = "id\tcountry\tcity\n1\tUSA\tNew York\n2\tCanada\tToronto\n3\tUK\tLondon\n4\tAustralia\tSydney\n5\tGermany\tBerlin\n6\tFrance\tParis\n7\tJapan\tTokyo\n8\tSpain\tMadrid\n";
 	if (strcmp(buffer, exp) != 0) {
 		std::cout << "driver_fread tests error: invalid buffer content (exp: \"" << exp << "\", got: \"" << buffer << "\")" << std::endl;
 		free(buffer);
@@ -473,7 +473,6 @@ int test_driver_fread_multiple_time() {
 	std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
 
 	size_t total_size = driver_getFileSize(path.c_str());
-	std::cout << "Places.parquet size: " << total_size << " bytes." << std::endl;
 
 	ParquetFile* mf = (ParquetFile*)driver_fopen(path.c_str(), 'r');
 
@@ -523,6 +522,102 @@ int test_driver_fread_multiple_time() {
 	}
 
 	free(buf);
+	return 0;
+}
+
+int read_after_fseek() {
+	const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/test.parquet";
+
+	size_t file_logical_size = driver_getFileSize(path.c_str());
+	//std::cout << "File logical size: " << file_logical_size << std::endl;
+
+	void* driver = driver_fopen(path.c_str(), 'r');
+	if (!driver) {
+		std::cerr << "read_after_fseek error: driver_fopen failed" << std::endl;
+		return 1;
+	}
+	auto pd = (ParquetFile*)driver;
+
+	size_t buffer_size = 30;
+	void* buf = calloc(1, buffer_size + 1);
+	if (!buf) {
+		std::cerr << "read_after_fseek error: Unable to calloc\n";
+		return 1;
+	}
+
+	std::string exp_str;
+	int seek_position = 16;
+	long long code = driver_fseek(driver, seek_position, 0);
+
+	if (code == -1) {
+		std::cerr << "read_after_fseek error: driver_fseek returned -1 on seeking to " << seek_position << std::endl;
+		free(buf);
+		return 1;
+	}
+
+
+	code = driver_fread(buf, 1, 19, driver);
+	long long exp = 19;
+	if (code != -1) {
+		exp_str = "to\t1\n1\t\"it\"\"it\"\t42\n";
+		if (strncmp((char*)buf, exp_str.c_str(),exp) != 0 || code != exp) {
+			std::cout << "read_after_fseek error: content of buffer != expected or number of bytes read != exp." << std::endl;
+
+			std::cout << "Read bytes = " << code << std::endl;
+
+			((char*)buf)[code] = 0;
+			std::cout << "Buffer contains: " << std::endl << (char*)buf << "<-EOF" << std::endl;
+
+			std::cout << std::endl;
+			return 1;
+		}
+
+	}
+	else {
+		std::cerr << "read_after_fseek error: driver_fread returned -1\n";
+		free(buf);
+		return 1;
+	}
+
+	seek_position = 59;
+
+	code = driver_fseek(driver, seek_position, 0);
+
+	if (code == -1) {
+		std::cerr << "read_after_fseek error: driver_fseek returned -1 on seeking to " << seek_position << std::endl;
+		free(buf);
+		return 1;
+	}
+
+
+	code = driver_fread(buf, 1, 19, driver);
+	exp = 13;
+	if (code != -1) {
+		exp_str = "123456789\t\t0\n";
+		if (strncmp((char*)buf, exp_str.c_str(),exp) != 0 || code != exp) {
+			std::cout << "read_after_fseek error: content of buffer != expected or number of bytes read != exp." << std::endl;
+
+			std::cout << "Read bytes = " << code << std::endl;
+
+			((char*)buf)[code] = 0;
+			std::cout << "Buffer contains: " << std::endl << (char*)buf << "<-EOF" << std::endl;
+
+			std::cout << std::endl;
+			return 1;
+		}
+
+	}
+	else {
+		std::cerr << "read_after_fseek error: driver_fread returned -1\n";
+		free(buf);
+		return 1;
+	}
+
+	free(buf);
+
+	if (driver_fclose(driver) != 0) {
+		std::cerr << "Error closing driver\n";
+	}
 	return 0;
 }
 
@@ -829,6 +924,7 @@ int main() {
 	failed += test_driver_fread_byte_by_byte();
 	failed += test_driver_fread_eof();
 	failed += test_driver_fread_multiple_time();
+	failed += read_after_fseek();
 
 	failed += test_driver_fseek_errors();
 	failed += test_driver_fseek_random();

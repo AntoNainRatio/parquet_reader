@@ -271,111 +271,22 @@ int read_as_khiops(const std::string path, const bool timer) {
     return 0;
 }
 
-int read_after_fseek(const std::string path, const bool timer) {
-    size_t file_logical_size = driver_getFileSize(path.c_str());
-    std::cout << "File logical size: " << file_logical_size << std::endl;
 
-    auto t1 = std::chrono::high_resolution_clock::now();
-
-    void* driver = driver_fopen(path.c_str(), 'r');
-    if (!driver) {
-        std::cerr << "Error: driver_fopen failed" << std::endl;
-        return 1;
-    }
-    auto pd = (ParquetFile*)driver;
-    //pd->dumpInfo();
-
-    size_t buffer_size = 30;
-    void* buf = calloc(1, buffer_size + 1);
-    if (!buf) {
-        std::cerr << "Error calloc\n";
-        return 1;
-    }
-
-    int seek_position = 16;
-    long long code = driver_fseek(driver, seek_position, 0);
-
-    if (code == -1) {
-        std::cerr << "driver_fseek returned -1 on seeking to " << seek_position << std::endl;
-        free(buf);
-        return 1;
-    }
-
-
-    code = driver_fread(buf, 1, 19, driver);
-
-    if (code != -1) {
-        std::cout << "Read bytes = " << code << std::endl;
-
-        ((char*)buf)[code] = 0;
-        std::cout << "Buffer contains: " << std::endl << (char*)buf << "<-EOF" << std::endl;
-
-        std::cout << std::endl;
-
-    }
-    else {
-        std::cerr << "driver_fread returned -1\n";
-        free(buf);
-        return 1;
-    }
-
-    seek_position = 59;
-
-    code = driver_fseek(driver, seek_position, 0);
-
-    if (code == -1) {
-        std::cerr << "driver_fseek returned -1 on seeking to " << seek_position << std::endl;
-        free(buf);
-        return 1;
-    }
-
-
-    code = driver_fread(buf, 1, 13, driver);
-
-    if (code != -1) {
-        std::cout << "Read bytes = " << code << std::endl;
-
-        ((char*)buf)[code] = 0;
-        std::cout << "Buffer contains: " << std::endl << (char*)buf << "<-EOF" << std::endl;
-
-        std::cout << std::endl;
-
-    }
-    else {
-        std::cerr << "driver_fread returned -1\n";
-        free(buf);
-        return 1;
-    }
-
-    free(buf);
-
-    if (driver_fclose(driver) != 0) {
-        std::cerr << "Error closing driver\n";
-    }
-
-    auto t2 = std::chrono::high_resolution_clock::now();
-    if (timer) {
-        std::cout << "Parquet reading succeed in " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << "millisecs" << std::endl;
-
-    }
-    return 0;
-}
 
 int main() {
     //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
     //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/hard.parquet";
-    //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/test.parquet";
+    const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/test.parquet";
     //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/acci.parquet";
     //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/Places_cut.parquet";
     //const std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
-    const std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet";
+    //const std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet";
 
     int error = 0;
 
     int code;
-    code = read_whole_file(path, true);
+    //code = read_whole_file(path, true);
     //code = read_as_khiops(path, true);
-    //code = read_after_fseek(path, true);
     //code = compare();
     if (code != 0) {
         error++;

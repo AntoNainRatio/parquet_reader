@@ -580,8 +580,16 @@ int driver_fseek(void* stream, long long int offset, int whence)
 
 	size_t rg = 0, col = 0, page = 0, val = 0, header = static_cast<size_t>(-1);
 	if (!parquetFile->findValueAtLogicalPosition(rg, col, page, val, header)) {
-		LogError("driver_fseek: Unable to find new value position.");
-		return -1;
+		if (parquetFile->pos != parquetFile->logical_size) {
+			LogError("driver_fseek: Unable to find new value position.");
+			return -1;
+		}
+		else {
+			// currently at eof
+			parquetFile->column_readers.clear();
+			// no need to open column readers since we couldn't read
+			return 0;
+		}
 	}
 
 	// closing and reopenning columnReaders everytime
