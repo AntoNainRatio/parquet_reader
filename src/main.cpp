@@ -133,7 +133,7 @@ int read_whole_file(const std::string path, bool timer) {
     auto pd = (ParquetFile*)driver;
     //pd->dumpInfo();
 
-    size_t buffer_size = 10000;
+    size_t buffer_size = 1048576;
     void* buf = calloc(1, buffer_size + 1);
     if (!buf) {
         std::cerr << "Error calloc\n";
@@ -150,7 +150,7 @@ int read_whole_file(const std::string path, bool timer) {
         long long code = driver_fread(buf, 1, buffer_size, driver);
 
         if (code != -1) {
-           //std::cout << "Read bytes = " << code << "\n";
+           std::cout << "Read bytes = " << code << "\n";
 
            /* ((char*)buf)[code] = 0;
             std::cout << "Buffer contains: " << std::endl << (char*)buf << "<-EOF" << std::endl;
@@ -208,13 +208,13 @@ int main() {
     //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/toto.parquet";
     //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/hard.parquet";
     //const std::string path = "parquet://C/Users/KXFJ3896/Documents/parquet_reader/data/test.parquet";
-    const std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Places.parquet";
+    const std::string path = "parquet://C/Users/Public/khiops_data/samples/AccidentsMedium/Accidents.parquet";
 
     int error = 0;
 
     int code;
-    // code = read_whole_file(path, true);
-    code = compare();
+    code = read_whole_file(path, true);
+    // code = compare();
     if (code != 0) {
         error++;
         std::cerr << "Error reading whole file." << std::endl;

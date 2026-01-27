@@ -331,8 +331,7 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 		return 0;
 	}
 	else if (header != -1) {
-		while (header < parquetFile->headers.size() && readcount < totalBytesToRead) {
-			// TODO: will need a loop to read headers until end of headers or totalBytesToRead reached
+		while (header < parquetFile->headers.size() && readcount < totalBytesToRead) { // reading header loop
 			auto value_logical_start = parquetFile->headers[header].header_logical_start;
 			size_t offset_in_value = parquetFile->pos - value_logical_start;
 
@@ -363,7 +362,7 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 	size_t row = 0;
 	size_t batch_id = 0;
 	
-	// find where we are in the batch
+	// find where we are in the row group
 	auto logical_start = parquetFile->row_groups[rg_id].rowgroup_logical_start;
 	int64_t offset_in_rg = parquetFile->pos - logical_start;
 	int64_t cur_offset = 0;
@@ -421,8 +420,8 @@ long long int driver_fread(void* ptr, size_t size, size_t count, void* stream)
 			readcount += nb_to_copy;
 			parquetFile->pos += nb_to_copy;
 		}
-		cur_offset += escaped.size(); // Ok meme si toute valeur non lu car 
-		//								 si la valeur est pas lu entierement cela signifie qu'on a fini de lire
+		cur_offset += escaped.size();	// Ok meme si toute valeur non lu car 
+										// si la valeur est pas lu entierement cela signifie qu'on a fini de lire
 		
 		col++;
 		if (col == batch->num_columns()) {
