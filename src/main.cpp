@@ -284,9 +284,9 @@ int main() {
 
     int error = 0;
 
-    int code;
+    int code = 0;;
     //code = read_whole_file(path, true);
-    //code = read_as_khiops(path, true);
+    code = read_as_khiops(path, true);
     //code = compare();
     if (code != 0) {
         error++;
