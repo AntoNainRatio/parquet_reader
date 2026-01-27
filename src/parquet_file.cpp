@@ -96,9 +96,18 @@ void ParquetFile::BuildLogicalIndex() {
                 {
                 case parquet::Type::INT32: {
                     int32_t val;
+
+                    // cast into correct type to read properly the value
                     auto typed = dynamic_cast<parquet::TypedColumnReader<parquet::Int32Type>*>(col_reader.get());
+
+                    // asking to read one value
+                    // val: the value read
+                    // values_read: the number of values succesfully read
                     typed->ReadBatch(1, nullptr, nullptr, &val, &values_read);
+
+                    // cast en string pour avoir sa taille
                     std::string s = std::to_string(val);
+
                     v.byte_len = static_cast<uint32_t>(s.size()) + 1; // +1 pour séparateur ou newline
                     break;
                 }
@@ -201,8 +210,10 @@ void ParquetFile::BuildLogicalIndex() {
         row_groups.push_back(rg_idx);
     }
 
+    // should clear all column readers because they're all consumed
     this->column_readers.clear();
     this->column_readers.resize(metadata->num_columns());
+    // and open new fresh ones
     openColumnReaders(0);
 
     logical_size = global_offset;
@@ -262,6 +273,9 @@ void ParquetFile::dumpInfo() {
 
 bool ParquetFile::findValueAtLogicalPosition(size_t& out_row_group, size_t& out_column, size_t& out_page, size_t& out_value, size_t& out_header)
 {
+    // Probably should go for binary search
+    // linear search --> O(n) 
+    // Binary search --> Log(n)
     if (this->pos >= 0 && this->pos <= headers.back().header_logical_end) {
         for (size_t col = 0; col < this->headers.size(); col++) {
             if (this->pos >= headers[col].header_logical_start && pos <= headers[col].header_logical_end) {
