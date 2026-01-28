@@ -2,6 +2,8 @@
 
 Parquet Reader is the work done during an Orange internship.
 The goal was to to make it possible to read Parquet file by [**Khiops**](https://khiops.org/).
+This repo is considered part of the [Parquet-Integration](https://github.com/AntoNainRatio/Parquet-Integration) repo.
+I think it was a better idea to keep this repo separated due to the multiple branches.
 
 ## Prerequisites
 
@@ -19,7 +21,8 @@ The repo contains 4 branches:
 * *rg_reader*: This branch contains the other way of reading parquet by reading by row group.
 
 You can read the report of this internship to get details of the implementations. Due to the size restrictions of the report, I couldn't explain everything in details.
-That's why,we will go in detail of each of the both implementations by explaning what's not present in the report.
+That's why,we will go in detail of each of the both implementations by explaning what's not present in the report. You can find the [report](https://github.com/AntoNainRatio/Parquet-Integration/blob/main/2027_antonin_lhuillery_rapportdestage_fr.pdf) on the Parquet-Integration repository.
+The code is (I hope) well enough commented on the way it works and why we do things.
 
 ### Page Reader (page_reader)
 
@@ -37,7 +40,12 @@ I didn't find any int96_t values handled by C++, maybe there's some available. I
 
 ### Row Group Reader (rg_reader)
 
+This version is handling all types coming from Parquet itself. 
+The reading of header is the same as the `page_reader` version.
 
+As told in the report, this version is faster for reading a file but slower when we use is in Khiops.
+An analyse of the execution time of each call of the driver API should give information on what's happening. This analysis was done by printing on stdout the execution of each call.
+This way when you use the driver with Khiops, it gives you all the calls durations. You can find how to analyse those results [here](https://github.com/AntoNainRatio/Parquet-Integration/blob/main/bench/python/driver_analysis/driver_call_analysis.py).
 
 ## Testing the code
 
