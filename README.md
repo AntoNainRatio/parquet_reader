@@ -62,4 +62,4 @@ You can also test the driver with **Khiops**. I used scenarios that are in the f
 khiops -i "path/to/the/scenario._kh" -e "path/to/the/log/file.txt"
 ```
 
-You can create driver by using the Khiops application and finding the `khiops_data/lastrun/scenario._kh` in your user folder (It was my case).
+You can create scenarios by using the Khiops application and finding the `khiops_data/lastrun/scenario._kh` in your user folder (It was my case).
