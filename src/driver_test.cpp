@@ -81,6 +81,10 @@ int test_driver_fread_errors() {
 	// init buffer
 	const size_t buffer_size = 1024;
 	char* buffer = (char*)malloc(buffer_size * sizeof(char));
+	if (!buffer) {
+		driver_fclose(mf);
+		throw std::runtime_error("driver_fread all file test error: unable to malloc buffer.");
+	}
 
 	size_t size = sizeof(char);
 	size_t count = 500;
@@ -101,6 +105,7 @@ int test_driver_fread_errors() {
 
 	code = driver_fclose(mf);
 	if (code == -1) {
+		free(buffer);
 		throw std::runtime_error("driver_close error during driver_fread tests.");
 	}
 
@@ -125,6 +130,10 @@ int test_driver_fread() {
 	// init buffer
 	const size_t buffer_size = 1024;
 	char* buffer = (char*)malloc(buffer_size * sizeof(char));
+	if (!buffer) {
+		driver_fclose(mf);
+		throw std::runtime_error("driver_fread all file test error: unable to malloc buffer.");
+	}
 
 	size_t size = sizeof(char);
 	size_t count = 500;
@@ -143,6 +152,7 @@ int test_driver_fread() {
 
 	code = driver_fclose(mf);
 	if (code == -1) {
+		free(buffer);
 		throw std::runtime_error("driver_close error during driver_fread tests.");
 	}
 
@@ -180,6 +190,7 @@ int test_driver_fread_all_file() {
 		}
 		else {
 			std::cout << "driver_fread all file test: error reading the whole file." << std::endl;
+			free(buffer);
 			return 1;
 		}
 		// std::cout << "END of loop" << std::endl;
@@ -187,15 +198,17 @@ int test_driver_fread_all_file() {
 
 	if (total_read != total_read_target) {
 		std::cout << "driver_fread all file test: read more than there is in file." << std::endl;
+		free(buffer);
 		return 1;
 	}
+
+	free(buffer);
 
 	code = driver_fclose(mf);
 	if (code == -1) {
 		throw std::runtime_error("driver_close error during driver_fread all file test.");
 	}
 
-	free(buffer);
 	return 0;
 }
 
@@ -211,6 +224,10 @@ int test_driver_fread_all_file_two_times() {
 
 	const size_t buffer_size = 1000;
 	char* buffer = (char*)calloc(buffer_size, sizeof(char));
+	if (!buffer) {
+		driver_fclose(mf);
+		throw std::runtime_error("driver_fread all file test error: unable to malloc buffer.");
+	}
 
 	size_t total_read = 0;
 
@@ -229,6 +246,7 @@ int test_driver_fread_all_file_two_times() {
 		}
 		else {
 			std::cout << "driver_fread all file test: error reading the whole file." << std::endl;
+			free(buffer);
 			return 1;
 		}
 		// std::cout << "END of loop" << std::endl;
@@ -236,11 +254,13 @@ int test_driver_fread_all_file_two_times() {
 
 	if (total_read != total_read_target) {
 		std::cout << "driver_fread all file test: read more than there is in file." << std::endl;
+		free(buffer);
 		return 1;
 	}
 
 	code = driver_fseek(mf, 0, std::ios::beg);
 	if (code == -1) {
+		free(buffer);
 		throw std::runtime_error("driver_fseek error during driver_fread all file test.");
 	}
 
@@ -253,17 +273,20 @@ int test_driver_fread_all_file_two_times() {
 		}
 		else {
 			std::cout << "driver_fread all file test: error reading the whole file." << std::endl;
+			free(buffer);
 			return 1;
 		}
 	}
 
 	if (total_read != total_read_target) {
 		std::cout << "driver_fread all file test: read more than there is in file." << std::endl;
+		free(buffer);
 		return 1;
 	}
 
 	code = driver_fclose(mf);
 	if (code == -1) {
+		free(buffer);
 		throw std::runtime_error("driver_close error during driver_fread all file test.");
 	}
 
@@ -285,6 +308,10 @@ int test_driver_fread_whole_file_in_one_read() {
 	// init buffer
 	const size_t buffer_size = 1024;
 	char* buffer = (char*)calloc(buffer_size, 1);
+	if (buffer == NULL) {
+		driver_fclose(mf);
+		throw std::runtime_error("driver_fread tests error: unable to malloc buffer.");
+	}
 
 	size_t size = 1;
 	size_t count = 500;
@@ -484,6 +511,10 @@ int test_driver_fread_multiple_time() {
 	}
 
 	char* buf = (char*)calloc(1048576+1,sizeof(char));
+	if (!buf) {
+		driver_fclose(mf);
+		throw std::runtime_error("driver_fread_multiple_time test error: unable to malloc buffer.");
+	}
 
 	code = driver_fread(buf, 1, 1048576, mf);
 	if (code == -1) {
@@ -569,6 +600,7 @@ int read_after_fseek() {
 			std::cout << "Buffer contains: " << std::endl << (char*)buf << "<-EOF" << std::endl;
 
 			std::cout << std::endl;
+			free(buf);
 			return 1;
 		}
 
@@ -603,6 +635,8 @@ int read_after_fseek() {
 			std::cout << "Buffer contains: " << std::endl << (char*)buf << "<-EOF" << std::endl;
 
 			std::cout << std::endl;
+
+			free(buf);
 			return 1;
 		}
 
