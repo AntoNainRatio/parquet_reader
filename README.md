@@ -35,6 +35,9 @@ The first plan was to use [PageReader](https://github.com/apache/arrow/blob/0d0e
 But I didn't manage to make it work so I went for [columnReaders](https://github.com/apache/arrow/blob/main/cpp/src/parquet/column_reader.h).
 This both classes are not documented and the only way to find how it works is to read the source code itself.
 
+One thing important to know is that when skipping values, you actually read them. This means decoding and decompressing each of the values skip. You can found the code [here](https://github.com/apache/arrow/blob/12cdb09e32d7658a810b6bbeea67c116126c9f93/cpp/src/parquet/column_reader.cc#L1135).
+That's why oppening new columnReaders at each call and skipping to the right row is really slow.
+
 The actual implementation is handling almost every types but not all of them. We are not handling `INT96` and `FIXED_LEN_BYTE_ARRAY`. The reading of values is based on finding the corresponding value in C++.
 I didn't find any int96_t values handled by C++, maybe there's some available. I didn't really dive into the `FIXED_LEN_BYTE_ARRAY`.
 
